@@ -1,0 +1,85 @@
+ 
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="misc/css/bootstrap-3.4.1.min.css"/> 
+  </head>
+  <style>
+ 
+.refLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0px 8px;
+}
+.references li {
+  margin: 12px 0px;
+}
+.references .title {
+  font-style: italic;
+}
+.references img {
+  max-height: 1.2em;
+}
+.references.subtle img {
+  -webkit-filter: grayscale(100%);
+  filter: grayscale(100%);
+}
+.references a {
+  color: inherit;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+}
+.references.inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0px 2px;
+}
+  </style>
+  <body>
+    <div class="container" style="margin-top:16px;">
+      
+      <div class="well tools-well">
+        <h1>QMEAN
+        <small class="hidden-xs hidden-sm">Qualitative Model Energy ANalysis</small>
+        </h1>  
+      </div>
+
+        <div>
+          <ul id="multipleModels"></ul>
+        </div>
+
+        <hr>
+    <div id="references">
+      
+        <i>Reference for the QMEAN scoring function:</i>
+        <div class="references inline">[1] <div>Benkert P, Biasini M, Schwede T </div><div class="title">Toward the estimation of the absolute quality of individual protein structure models. </div><div class="refLinks">Bioinformatics 27, 343-350. (2011) <a title="Show PubMed record" href="https://pubmed.ncbi.nlm.nih.gov/21134891"><img alt="PubMed logo" src="misc/img//pubmed.png" />21134891</a><a title="Show DOI record" href="https://doi.org/10.1093/bioinformatics/btq662"><img alt="DOI logo" src="misc/img//doi.png" />10.1093/bioinformatics/btq662</a> </div></div>
+        <br/>
+        <i>Reference for the QMEANDisCo scoring function:</i>
+        <div class="references inline">[2] <div>Studer G, Rempfer C, Waterhouse AM, Gumienny R, Haas J, Schwede T </div><div class="title">QMEANDisCo - distance constraints applied on model quality estimation. </div><div class="refLinks">Bioinformatics 36, 1765-1771. (2020) <a title="Show PubMed record" href="https://pubmed.ncbi.nlm.nih.gov/31697312"><img alt="PubMed logo" src="misc/img//pubmed.png" />31697312</a><a title="Show DOI record" href="https://doi.org/10.1093/bioinformatics/btz828"><img alt="DOI logo" src="misc/img//doi.png" />10.1093/bioinformatics/btz828</a> </div></div>
+        <br/>
+        <i>Reference for the QMEANBrane scoring function:</i>
+        <div class="references inline">[3] <div>Studer G, Biasini M, Schwede T </div><div class="title">Assessing the local structural quality of transmembrane protein models using statistical potentials (QMEANBrane). </div><div class="refLinks">Bioinformatics 30, i505–i511. (2014) <a title="Show PubMed record" href="https://pubmed.ncbi.nlm.nih.gov/25161240"><img alt="PubMed logo" src="misc/img//pubmed.png" />25161240</a><a title="Show DOI record" href="https://doi.org/10.1093/bioinformatics/btu457"><img alt="DOI logo" src="misc/img//doi.png" />10.1093/bioinformatics/btu457</a> </div></div>
+		    <br/>
+      
+    </div>
+
+
+
+<script src="misc/js/jquery-3.7.0.min.js"></script>
+<script>
+
+$(document).ready(function () {
+    
+    $.each(['smtl_4hwk_1_model_001'], function(index, val)
+    {
+      $('#multipleModels').append('<li><a href="'+val+'/index.html">'+val+'</a></li>');
+    });
+});
+
+
+</script>
+
