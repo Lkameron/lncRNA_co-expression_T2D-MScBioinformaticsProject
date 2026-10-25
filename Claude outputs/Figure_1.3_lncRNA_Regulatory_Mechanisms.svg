@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="760" viewBox="0 0 1180 760">
+<rect x="0" y="0" width="1180" height="760" fill="#ffffff"/>
+<defs><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#475569"/></marker></defs>
+<text x="590.0" y="38" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#1f2933">Mechanisms of lncRNA-Mediated Gene Regulation</text>
+<text x="590.0" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#52606d" font-style="italic">lncRNAs act at multiple levels of gene expression control</text>
+<rect x="20.0" y="90" width="540" height="300" rx="12" fill="#eef2f7" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="122" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="700" fill="#1f2933">A. Chromatin-Level Regulation</text>
+<rect x="90.0" y="144" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="167.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933">lncRNA</text>
+<rect x="90.0" y="214" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="230.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Recruits chromatin-modifying complex</text>
+<text x="290.0" y="254.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.6" font-style="italic" fill="#52606d">to a specific genomic locus</text>
+<line x1="290.0" y1="190" x2="290.0" y2="214" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="90.0" y="284" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="307.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Altered histone modification / DNA accessibility</text>
+<line x1="290.0" y1="260" x2="290.0" y2="284" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<text x="290.0" y="356" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#52606d" font-style="italic">changes local chromatin state at target loci</text>
+<rect x="620.0" y="90" width="540" height="300" rx="12" fill="#e1edf9" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="122" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="700" fill="#1f2933">B. Transcriptional-Level Regulation</text>
+<rect x="690.0" y="144" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="167.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933">lncRNA</text>
+<rect x="690.0" y="214" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="237.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Interacts with transcription factor or RNA Pol II</text>
+<line x1="890.0" y1="190" x2="890.0" y2="214" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="690.0" y="284" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="300.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Modulated gene transcription</text>
+<text x="890.0" y="324.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.6" font-style="italic" fill="#52606d">↑ or ↓ depending on interaction</text>
+<line x1="890.0" y1="260" x2="890.0" y2="284" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<text x="890.0" y="356" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#52606d" font-style="italic">directly influences the transcriptional machinery</text>
+<rect x="20.0" y="430" width="540" height="300" rx="12" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="462" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="700" fill="#1f2933">C. Post-Transcriptional — Scaffold</text>
+<rect x="90.0" y="484" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="507.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933">lncRNA</text>
+<rect x="90.0" y="554" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="577.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Binds multiple protein partners simultaneously</text>
+<line x1="290.0" y1="530" x2="290.0" y2="554" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="90.0" y="624" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="290.0" y="640.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Assembled regulatory complex</text>
+<text x="290.0" y="664.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.6" font-style="italic" fill="#52606d">brings proteins into proximity</text>
+<line x1="290.0" y1="600" x2="290.0" y2="624" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<text x="290.0" y="696" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#52606d" font-style="italic">acts as a molecular scaffold for protein complexes</text>
+<rect x="620.0" y="430" width="540" height="300" rx="12" fill="#fdf3d8" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="462" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="700" fill="#1f2933">D. Post-Transcriptional — Decoy</text>
+<rect x="690.0" y="484" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="507.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#1f2933">lncRNA</text>
+<rect x="690.0" y="554" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="577.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Sequesters regulatory protein or microRNA</text>
+<line x1="890.0" y1="530" x2="890.0" y2="554" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="690.0" y="624" width="400" height="46" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="890.0" y="640.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Target gene left unregulated</text>
+<text x="890.0" y="664.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.6" font-style="italic" fill="#52606d">protein/miRNA diverted away from its target</text>
+<line x1="890.0" y1="600" x2="890.0" y2="624" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<text x="890.0" y="696" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#52606d" font-style="italic">acts as a decoy, titrating regulators away from targets</text>
+</svg>

@@ -1,0 +1,399 @@
+---
+title: "GSE164416 – Pancreatic Islet T2D Co-expression Analysis: Critical Pipeline Steps"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: true
+    toc_depth: 2
+---
+
+---
+
+# Step 00 – Data Acquisition and Gene Annotation
+
+## 1. Biological Rationale
+
+The dataset used in this analysis is GSE164416 (Wigger et al., 2021,
+Nature Metabolism), which contains bulk RNA-seq data from pancreatic
+islets of donors classified as normoglycaemic (ND), impaired glucose
+tolerant (IGT), or type 2 diabetic (T2D). Pancreatic islets were chosen
+because they are the primary site of insulin secretion and beta-cell
+dysfunction, making them directly relevant to T2D pathophysiology.
+Raw count data were downloaded directly from the NCBI GEO repository
+to ensure full reproducibility. Gene identifiers were mapped to HGNC
+symbols using org.Hs.eg.db and biotype annotations (e.g. lncRNA, protein
+coding) were added from the GENCODE v46 GTF, which is required to
+distinguish long non-coding RNAs from protein-coding genes in downstream
+analysis.
+
+## 2. Code
+
+```{r step00-data-acquisition, eval=FALSE}
+# Download supplementary count matrix from GEO
+getGEOSuppFiles("GSE164416", makeDirectory = TRUE)
+
+# Map Ensembl IDs to gene symbols using org.Hs.eg.db
+gene_symbols <- mapIds(
+  org.Hs.eg.db,
+  keys      = gene_ids,
+  column    = "SYMBOL",
+  keytype   = "ENSEMBL",
+  multiVals = "first"
+)
+
+# Add biotype annotations from GENCODE v46 GTF
+gtf         <- rtracklayer::import(gtf_file)
+gtf_df      <- as.data.frame(gtf)
+biotype_map <- gtf_df[gtf_df$type == "gene",
+                      c("gene_id", "gene_type")]
+
+# Integrate clinical metadata from supplementary Excel file
+clinical <- readxl::read_excel("42255_2021_420_MOESM4_ESM.xlsx")
+```
+
+## 3. Results and Interpretation
+
+The downloaded count matrix contained 58,336 genes across 184 samples.
+After annotation with org.Hs.eg.db, 57,623 genes were successfully
+assigned a biotype. Of these, X,XXX were classified as lncRNA biotypes
+and retained for prioritisation in later steps. Clinical metadata
+confirmed the presence of ND, IGT, and T2D donors with associated
+HbA1c, BMI, and 2-hour glycaemia values, which were used as continuous
+traits in the WGCNA module-trait correlation analysis.
+
+---
+
+# Step 01 – Metadata Preparation
+
+## 1. Biological Rationale
+
+Accurate sample metadata is essential for correct model specification in
+DESeq2 and for labelling samples in WGCNA trait correlation. Donor
+status labels were standardised so that impaired fasting glucose (IFG)
+donors were recoded as IGT, as both represent intermediate dysglycaemia
+and the Wigger et al. study treats them equivalently. Disease status was
+encoded as an ordered factor (ND → IGT → T2D) to reflect the known
+biological progression toward type 2 diabetes. Continuous clinical
+variables including age, BMI, HbA1c, and 2-hour plasma glucose were
+retained as numeric traits for downstream WGCNA module-trait analysis.
+
+## 2. Code
+
+```{r step01-metadata, eval=FALSE}
+# Standardise IFG to IGT
+metadata$status[metadata$status == "IFG"] <- "IGT"
+
+# Encode as ordered factor
+metadata$status <- factor(
+  metadata$status,
+  levels = c("ND", "IGT", "T2D")
+)
+
+# Retain continuous clinical traits
+clinical_traits <- metadata[, c("sampleid", "status", "age",
+                                "bmi", "hba1c", "glycaemia_2h")]
+```
+
+## 3. Results and Interpretation
+
+After standardisation, the dataset contained XX ND, XX IGT, and XX T2D
+samples. No duplicate sample IDs were identified. All continuous trait
+variables contained some missing values for a minority of donors, which
+were carried forward as NA and handled within the WGCNA correlation
+functions. The final metadata table was verified to match the column
+order of the expression matrix before any modelling was performed.
+
+---
+
+# Step 02 – Quality Control, Filtering and Normalisation
+
+## 1. Biological Rationale
+
+Raw RNA-seq count data contains genes that are expressed at negligibly
+low levels, which contribute noise rather than signal to differential
+expression and co-expression analyses. A minimum expression threshold
+of 10 counts in at least 30% of samples was applied, a criterion derived
+from DESeq2 best practice guidelines (Love et al., 2014) that balances
+retaining biologically relevant lowly expressed genes while removing
+unreliable measurements. Variance stabilising transformation (VST) was
+applied rather than rlog because the dataset exceeds 30 samples, where
+VST produces equivalent results at substantially lower computational
+cost. The transformation was performed blind to sample group to avoid
+introducing bias into QC visualisations.
+
+## 2. Code
+
+```{r step02-qc-normalisation, eval=FALSE}
+# Filter low-expressed genes
+keep <- rowSums(counts >= 10) >= (0.3 * ncol(counts))
+counts_filtered <- counts[keep, ]
+
+# Construct DESeq2 object
+dds <- DESeqDataSetFromMatrix(
+  countData = counts_filtered,
+  colData   = metadata,
+  design    = ~ status
+)
+
+# Variance-stabilising transformation
+vst_counts <- vst(dds, blind = TRUE)
+
+# PCA for sample-level QC
+pca_res <- prcomp(t(assay(vst_counts)), scale. = FALSE)
+```
+
+## 3. Results and Interpretation
+
+Filtering reduced the gene set from 58,336 to XX,XXX genes. PCA of
+VST-normalised counts showed that disease status was the dominant source
+of variance, with PC1 explaining XX% of variance and showing directional
+separation from ND through IGT to T2D. No sample outliers were flagged
+at this stage. The normalised expression matrix was carried forward to
+differential expression analysis and WGCNA input preparation.
+
+---
+
+# Step 03 – Differential Expression Analysis
+
+## 1. Biological Rationale
+
+Differential expression analysis was performed using DESeq2 (Love et al.,
+2014), which uses a negative binomial generalised linear model to account
+for the overdispersion characteristic of RNA-seq count data. The Wald
+test was used to test pairwise contrasts between disease states: T2D
+vs ND, IGT vs ND, and T2D vs IGT. These three comparisons capture both
+the full extent of T2D-associated transcriptional change and the
+intermediate dysglycaemic state (IGT), allowing identification of genes
+that change progressively across the glycaemic spectrum. Multiple testing
+correction was applied using the Benjamini-Hochberg (BH) procedure at an
+FDR threshold of 5%, which controls the expected proportion of false
+discoveries among significant results.
+
+## 2. Code
+
+```{r step03-differential-expression, eval=FALSE}
+# Fit DESeq2 model
+dds <- DESeq(dds)
+
+# Extract pairwise results with BH correction
+res_T2D_vs_ND <- results(
+  dds,
+  contrast      = c("status", "T2D", "ND"),
+  alpha         = 0.05,
+  pAdjustMethod = "BH"
+)
+
+res_IGT_vs_ND <- results(
+  dds,
+  contrast      = c("status", "IGT", "ND"),
+  alpha         = 0.05,
+  pAdjustMethod = "BH"
+)
+
+res_T2D_vs_IGT <- results(
+  dds,
+  contrast      = c("status", "T2D", "IGT"),
+  alpha         = 0.05,
+  pAdjustMethod = "BH"
+)
+```
+
+## 3. Results and Interpretation
+
+The T2D vs ND comparison yielded the largest transcriptional response,
+with XXX significantly differentially expressed genes (padj < 0.05),
+of which XXX were upregulated and XXX downregulated in T2D. The IGT vs
+ND comparison produced XX DE genes, consistent with a more modest
+transcriptional dysregulation at the prediabetic stage. The T2D vs IGT
+comparison identified XX DE genes, representing genes that change
+specifically at the transition to overt diabetes. These three gene lists
+were carried forward to lncRNA prioritisation and WGCNA network analysis.
+
+---
+
+# Step 04 – lncRNA Prioritisation
+
+## 1. Biological Rationale
+
+Long non-coding RNAs (lncRNAs) represent a major class of non-coding
+transcripts increasingly implicated in metabolic disease, including T2D
+(Fadista et al., 2014; Motterle et al., 2017). To prioritise the most
+biologically relevant candidates from the full set of differentially
+expressed lncRNAs, a composite prioritisation score was constructed
+combining three orthogonal lines of evidence: effect size (absolute
+log2 fold change), statistical significance (-log10 adjusted p-value),
+and recurrence across comparisons (whether the lncRNA was differentially
+expressed in more than one pairwise contrast). Recurrence was weighted
+because lncRNAs dysregulated across multiple comparisons are more likely
+to represent genuine disease-associated transcriptional changes rather
+than comparison-specific noise. All component scores were min-max
+rescaled to [0,1] before summation to prevent any single metric
+dominating the ranking.
+
+## 2. Code
+
+```{r step04-lncrna-prioritisation, eval=FALSE}
+# Retain only lncRNA biotypes
+lncrna_biotypes <- c("lncRNA", "processed_transcript", "antisense",
+                     "sense_intronic", "sense_overlapping",
+                     "non_coding", "macro_lncRNA")
+
+lnc_genes <- gene_annot[gene_annot$biotype %in% lncrna_biotypes, ]
+
+# Min-max rescaling function
+rescale01 <- function(x) {
+  (x - min(x, na.rm = TRUE)) /
+    (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+}
+
+# Composite priority score
+lnc_ranked <- lnc_de %>%
+  mutate(
+    score_fc      = rescale01(abs(log2FoldChange)),
+    score_sig     = rescale01(-log10(padj)),
+    score_recur   = rescale01(recurrence_score),
+    priority_score = score_fc + score_sig + score_recur
+  ) %>%
+  arrange(desc(priority_score))
+```
+
+## 3. Results and Interpretation
+
+A total of XXX lncRNAs passed the biotype filter across the three
+comparisons. After applying the composite scoring approach, 115 lncRNAs
+were identified as high-priority candidates present in the
+cross-comparison summary. The top-ranked candidates included MIR217HG,
+NR2F2-AS1, and LINC01116, which were differentially expressed in
+multiple comparisons and showed large effect sizes. These candidates
+were carried forward to WGCNA module assignment and network integration
+in scripts 05 and 06.
+
+---
+
+# Step 05 – WGCNA Network Construction and Hub Gene Identification
+
+## 1. Biological Rationale
+
+Weighted Gene Co-expression Network Analysis (WGCNA; Langfelder &
+Horvath, 2008) was used to identify groups of co-expressed genes
+(modules) and to determine which genes are most central within each
+module (hub genes). A signed network was constructed using biweight
+midcorrelation (bicor) rather than Pearson correlation because bicor
+is more robust to outliers, which are common in biological RNA-seq
+data. A soft-thresholding power of 8 was selected because it was the
+lowest power at which the network approximated scale-free topology
+(R² = 0.851), satisfying the commonly recommended threshold of R² ≥ 0.80
+(Zhang & Horvath, 2005). Modules were merged if their eigengene
+correlation exceeded 0.75 (mergeCutHeight = 0.25) to avoid reporting
+highly similar modules separately. Hub genes were prioritised using a
+composite score combining module membership (kME), gene significance
+with respect to disease status, differential expression evidence, and
+lncRNA priority score.
+
+## 2. Code
+
+```{r step05-wgcna, eval=FALSE}
+# Sample QC
+gsg <- goodSamplesGenes(datExpr, verbose = 3)
+datExpr <- datExpr[gsg$goodSamples, gsg$goodGenes]
+
+# Soft-threshold power selection
+sft <- pickSoftThreshold(
+  datExpr,
+  powerVector = c(1:10, seq(12, 30, by = 2)),
+  networkType = "signed",
+  corFnc      = "bicor"
+)
+# Power = 8 selected (R² = 0.851)
+
+# One-step network construction
+net <- blockwiseModules(
+  datExpr,
+  power          = 8,
+  networkType    = "signed",
+  corType        = "bicor",
+  TOMType        = "signed",
+  minModuleSize  = 30,
+  mergeCutHeight = 0.25,
+  numericLabels  = FALSE
+)
+
+# Module membership (kME)
+MEs  <- moduleEigengenes(datExpr, net$colors)$eigengenes
+kME  <- cor(datExpr, MEs, method = "pearson")
+
+# Composite hub score
+hub_score <- rescale01(abs(kME))            +
+             rescale01(gene_significance)   +
+             rescale01(abs(log2FoldChange)) +
+             rescale01(lnc_priority_score)
+```
+
+## 3. Results and Interpretation
+
+After goodSamplesGenes QC, 98 samples and 20,042 genes were retained.
+The network construction identified 30 modules (including the grey
+unassigned module), ranging in size from XX to X,XXX genes. Eight
+modules were selected as focus modules for hub gene analysis: the five
+originally prioritised by module-trait association (brown, yellow, green,
+red, black) plus three additional modules (midnightblue, darkgreen, tan)
+identified because they contained the highest-ranked lncRNA candidates.
+A total of 5,760 genes were scored within these focus modules, and the
+top 20 hub genes per module were exported for downstream machine learning
+and enrichment analysis.
+
+---
+
+# Step 06 – lncRNA Network Annotation and Module Integration
+
+## 1. Biological Rationale
+
+Once WGCNA modules were constructed, it was necessary to determine which
+modules the prioritised lncRNA candidates belonged to and how central
+they were within those modules. Module membership (kME) reflects how
+correlated a gene's expression profile is with the overall module
+eigengene — a high kME indicates the gene is a core member of the
+module rather than a peripheral one. Integrating DE-based lncRNA
+priority scores with WGCNA hub scores provides a multi-evidence ranking
+that is more robust than either approach alone, as it captures both
+statistical significance of differential expression and network-level
+co-expression structure. This integration is particularly important for
+lncRNAs because their biological function is often inferred from the
+protein-coding genes they are co-expressed with (guilt-by-association
+principle).
+
+## 2. Code
+
+```{r step06-lncrna-integration, eval=FALSE}
+# Join lncRNA candidates to module assignments
+lnc_integrated <- lnc_candidates %>%
+  left_join(module_assignments, by = "gene_id") %>%
+  left_join(hub_scores,         by = "gene_id") %>%
+  arrange(desc(network_integration_score))
+
+# Network integration score combining all evidence
+lnc_integrated <- lnc_integrated %>%
+  mutate(
+    network_integration_score =
+      rescale01(priority_score)    +
+      rescale01(abs(kME))          +
+      rescale01(gene_significance)
+  )
+```
+
+## 3. Results and Interpretation
+
+All 115 prioritised lncRNA candidates were successfully assigned to
+WGCNA modules. The top-ranked candidates by network integration score
+were predominantly located in the midnightblue, brown, and green
+modules. MIR217HG (module: green) and NR2F2-AS1 (module: brown) were
+among the highest-scoring candidates, combining strong differential
+expression evidence with high module membership values, suggesting they
+are core members of their respective co-expression modules rather than
+peripheral assignments. The guilt-by-association principle implies that
+these lncRNAs share regulatory or functional relationships with the
+protein-coding hub genes in their modules, which were characterised by
+GO/KEGG enrichment in script 07.
+
+---

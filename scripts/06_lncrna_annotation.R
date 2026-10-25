@@ -335,7 +335,13 @@ lnc_points <- lnc_points %>%
   mutate(is_lncRNA = TRUE)
 
 lnc_module_tbl <- lnc_cross_lnc_only %>%
-  full_join(
+  # left_join, not full_join: module_assignments covers all ~20,042 genes in
+  # the network, so a full_join here was pulling every protein-coding gene
+  # into a table meant to hold lncRNA candidates only (they were filtered
+  # back out downstream by the NA network_integration_score check, so final
+  # results were unaffected, but the exported
+  # lncRNA_WGCNA_module_integration.tsv was misleadingly bloated).
+  left_join(
     module_assignments %>%
       select(
         gene_id,

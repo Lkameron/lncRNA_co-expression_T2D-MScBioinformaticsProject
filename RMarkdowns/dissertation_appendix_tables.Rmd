@@ -1,0 +1,124 @@
+---
+title: "Appendix B — Full Supplementary Data Tables"
+output:
+  word_document:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+library(dplyr)
+library(readr)
+```
+
+# B1. Full Differentially Expressed Gene Lists
+
+```{r de-t2d-nd}
+de1 <- read_tsv("results/de/tables/DESeq2_T2D_vs_ND_significant.tsv", show_col_types = FALSE) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Up", "Down")) %>%
+  select(gene_id, gene_symbol, biotype, baseMean, log2FoldChange, padj, direction) %>%
+  arrange(padj)
+
+kable(de1, digits = c(NA,NA,NA,1,2,-2,NA),
+      caption = "Table B1. Full list of significant DEGs, T2D vs ND (n=604; padj<0.05, |log2FC|>1).")
+```
+
+```{r de-igt-nd}
+de2 <- read_tsv("results/de/tables/DESeq2_IGT_vs_ND_significant.tsv", show_col_types = FALSE) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Up", "Down")) %>%
+  select(gene_id, gene_symbol, biotype, baseMean, log2FoldChange, padj, direction) %>%
+  arrange(padj)
+
+kable(de2, digits = c(NA,NA,NA,1,2,-2,NA),
+      caption = "Table B2. Full list of significant DEGs, IGT vs ND (n=193; padj<0.05, |log2FC|>1).")
+```
+
+```{r de-t2d-igt}
+de3 <- read_tsv("results/de/tables/DESeq2_T2D_vs_IGT_significant.tsv", show_col_types = FALSE) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Up", "Down")) %>%
+  select(gene_id, gene_symbol, biotype, baseMean, log2FoldChange, padj, direction) %>%
+  arrange(padj)
+
+kable(de3, digits = c(NA,NA,NA,1,2,-2,NA),
+      caption = "Table B3. Full list of significant DEGs, T2D vs IGT (n=245; padj<0.05, |log2FC|>1).")
+```
+
+\newpage
+
+# B2. Full lncRNA Prioritisation List
+
+```{r lncrna-full}
+lnc <- read_tsv("results/lncrna/tables/lncRNA_cross_comparison_summary.tsv", show_col_types = FALSE) %>%
+  select(gene_id, gene_symbol, gene_name, biotype, comparisons_present,
+         best_rank, max_prioritisation_score, recurrence_score, global_priority_score) %>%
+  arrange(desc(global_priority_score))
+
+kable(lnc, digits = c(NA,NA,NA,NA,0,0,3,2,3),
+      caption = "Table B4. Full list of 115 prioritised lncRNA candidates, ranked by global priority score (Section 2.5).")
+```
+
+\newpage
+
+# B3. Full Hub Gene Rankings — All 8 Focus Modules
+
+```{r hub-full}
+hub <- read_csv("results/wgcna/hubgenes/tables/wgcna_top20_hub_genes_per_focus_module.csv", show_col_types = FALSE)
+
+symbol_col <- intersect(c("gene_symbol.x","gene_symbol","gene_symbol.y"), colnames(hub))[1]
+name_col   <- intersect(c("gene_name.x","gene_name","gene_name.y"), colnames(hub))[1]
+biotype_col <- intersect(c("biotype.x","biotype","biotype.y"), colnames(hub))[1]
+
+hub_clean <- hub %>%
+  select(module_color, gene_id,
+         gene_symbol = all_of(symbol_col),
+         gene_name = all_of(name_col),
+         biotype = all_of(biotype_col),
+         hub_rank_all_genes, hub_score_all_genes) %>%
+  arrange(module_color, hub_rank_all_genes)
+
+kable(hub_clean, digits = c(NA,NA,NA,NA,NA,0,3),
+      caption = "Table B5. Full top-20 hub gene rankings for all 8 focus modules (brown, yellow, green, red, black, midnightblue, darkgreen, tan), ranked by composite hub score within each module (Section 2.7).")
+```
+
+\newpage
+
+# B4. Full Functional Enrichment Tables — GO Biological Process (per Focus Module)
+
+```{r go-modules, results='asis'}
+modules_bp <- c("black","brown","darkgreen","green","midnightblue")
+tbl_n <- 6
+for (m in modules_bp) {
+  f <- file.path("results/enrichment/tables", paste0("GO_BP_module_", m, ".csv"))
+  if (file.exists(f)) {
+    d <- read_csv(f, show_col_types = FALSE) %>%
+      select(ID, Description, GeneRatio, FoldEnrichment, p.adjust, Count) %>%
+      arrange(p.adjust)
+    cat(knitr::kable(d, digits = c(NA,NA,NA,2,-2,0),
+        caption = paste0("Table B", tbl_n, ". Full GO Biological Process enrichment, ", m, " module.")) %>%
+        paste(collapse = "\n"))
+    cat("\n\n")
+    tbl_n <- tbl_n + 1
+  }
+}
+```
+
+# B5. Full Functional Enrichment Tables — KEGG Pathways (per Focus Module)
+
+```{r kegg-modules, results='asis'}
+modules_kegg <- c("black","brown","darkgreen","green","tan")
+for (m in modules_kegg) {
+  f <- file.path("results/enrichment/tables", paste0("KEGG_module_", m, ".csv"))
+  if (file.exists(f)) {
+    d <- read_csv(f, show_col_types = FALSE) %>%
+      select(ID, Description, GeneRatio, FoldEnrichment, p.adjust, Count) %>%
+      arrange(p.adjust)
+    cat(knitr::kable(d, digits = c(NA,NA,NA,2,-2,0),
+        caption = paste0("Table B", tbl_n, ". Full KEGG pathway enrichment, ", m, " module.")) %>%
+        paste(collapse = "\n"))
+    cat("\n\n")
+    tbl_n <- tbl_n + 1
+  }
+}
+```

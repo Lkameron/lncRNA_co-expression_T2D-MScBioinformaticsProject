@@ -1,0 +1,834 @@
+---
+title: "Chapter 2 - Methodology: Compiled Analysis Code"
+subtitle: "lncRNA co-expression networks in T2D progression (GSE164416)"
+author: "L. Kameron"
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    theme: flatly
+---
+
+<!--
+WORKING FILE - NOT a script that is meant to be knit end-to-end in one sitting.
+
+This Rmd stitches together the actual code from scripts/00_download_data.R
+through scripts/10_report_writer.py, plus the covariate-adjustment (C1_*) and
+leakage-check (N0-N5_*) add-on scripts, in the same order as Chapter 2 of the
+dissertation. It exists so the methodology text can be checked line-by-line
+against the code that produced it, and so I can keep editing/trimming this
+alongside the write-up without digging back through 15 separate script files.
+
+Each numbered script writes its outputs to disk (data/processed/, results/)
+and the NEXT script reads those files back in - that's why chunks below are
+eval=FALSE by default. To actually reproduce a result, run the corresponding
+script in scripts/ directly from the project root, e.g.:
+    Rscript scripts/03_differential_expression.R
+Chunks here are trimmed to the logic that matters for the methods write-up
+(package loading and the repeated `cat()` progress messages have mostly been
+cut) - the full, runnable versions live in scripts/.
+-->
+
+```{r global-options, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE, echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 2.1 RNA Bulk Dataset
+
+Dataset: **GSE164416** (Wigger et al. 2021, *Nature Metabolism*), pancreatic
+islet RNA-seq. 133 raw samples; this project uses the ND/IGT/T2D subset
+(98 samples after QC), excluding T3cD samples as pancreatogenic diabetes falls
+outside the ND -> IGT -> T2D progression pathway this project is modelling.
+
+Corresponds to: `scripts/00_download_data.R`, `scripts/01_prepare_metadata.R`
+(the two were later split; the current repo keeps the metadata-building logic
+in `01_prepare_metadata.R` and the raw pull in `00_download_data.R`).
+
+```{r download-and-annotate, eval=FALSE}
+# from scripts/00_download_data.R
+# GSE164416 supplementary file URL
+count_url <- paste0(
+  "https://ftp.ncbi.nlm.nih.gov/geo/series/GSE164nnn/",
+  "GSE164416/suppl/GSE164416_DP_htseq_counts.txt.gz"
+)
+
+if (!file.exists(count_gz)) {
+  download.file(count_url, count_gz, mode = "wb")
+}
+R.utils::gunzip(count_gz, remove = FALSE, overwrite = TRUE)
+
+# GEO Series Matrix file containing sample annotations
+gse_list  <- GEOquery::getGEO("GSE164416", GSEMatrix = TRUE, destdir = raw_dir)
+gse_object <- gse_list[[1]]
+geo_pheno  <- Biobase::pData(gse_object)
+
+counts_df <- data.table::fread(count_txt)
+count_matrix <- counts_df %>%
+  tibble::column_to_rownames(var = colnames(counts_df)[1]) %>%
+  as.matrix()
+mode(count_matrix) <- "numeric"
+```
+
+Clinical metadata (age, BMI, HbA1c, 2h glycaemia) was not in the GEO record
+itself - it's only in the paper's Supplementary Table 1, which needed a Nature
+subscription to access before I found the direct supplementary-file link. That
+file (`42255_2021_420_MOESM4_ESM.xlsx`) is merged with the GEO phenotype table
+by donor ID:
+
+```{r merge-clinical-metadata, eval=FALSE}
+# from scripts/00_download_data.R
+clinical_data <- readxl::read_excel(clinical_xlsx, sheet = 1, col_names = TRUE) %>%
+  dplyr::rename(
+    donor_id = 1, diabetes_status_clinical = 2, age_clinical = 3,
+    glycaemia_2h_ogtt = 4, hba1c_clinical = 5, bmi_clinical = 6
+  ) %>%
+  dplyr::mutate(
+    donor_id = stringr::str_trim(donor_id),
+    # Note: supplementary file uses "T3D" instead of "T3cD"
+    status_clinical = dplyr::case_when(
+      diabetes_status_clinical == "ND"  ~ "ND",
+      diabetes_status_clinical == "IGT" ~ "IGT",
+      diabetes_status_clinical == "T2D" ~ "T2D",
+      diabetes_status_clinical %in% c("T3D", "T3cD") ~ "T3cD",
+      TRUE ~ "Unknown"
+    ),
+    age = as.numeric(age_clinical),
+    bmi = as.numeric(bmi_clinical),
+    hba1c = as.numeric(hba1c_clinical),
+    glycaemia_2h = as.numeric(glycaemia_2h_ogtt)
+  ) %>%
+  dplyr::select(donor_id, status_clinical, age, bmi, hba1c, glycaemia_2h)
+
+sample_metadata <- tibble(
+  sample   = sample_names,
+  donor_id = stringr::str_extract(sample_names, "DP\\d+")
+) %>%
+  dplyr::left_join(geo_metadata, by = "donor_id") %>%
+  dplyr::left_join(clinical_data, by = "donor_id") %>%
+  dplyr::mutate(status = dplyr::coalesce(status_clinical, status_geo))
+```
+
+Genes are annotated with symbol/name (`org.Hs.eg.db`, used offline because the
+Ensembl biomart kept timing out) and biotype (parsed directly from the
+GENCODE v46 GTF, since `org.Hs.eg.db` doesn't carry biotype):
+
+```{r gene-annotation, eval=FALSE}
+# from scripts/00_download_data.R
+gene_ids_clean <- stringr::str_remove(gene_ids, "\\.[0-9]+$")
+
+gene_annotation <- tibble(
+  original_gene_id = gene_ids,
+  ensembl_gene_id   = gene_ids_clean
+) %>%
+  dplyr::mutate(
+    gene_symbol = AnnotationDbi::mapIds(
+      org.Hs.eg.db, keys = ensembl_gene_id,
+      column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first"
+    ) %>% unname()
+  )
+
+# GTF attributes format: gene_id "ENSG...5"; gene_type "..."; gene_name "...";
+gtf_gene_df <- tibble(line = gene_lines) %>%
+  dplyr::mutate(
+    ensembl_gene_id_versioned = stringr::str_match(line, 'gene_id "([^"]+)"')[, 2],
+    gene_name_gtf = stringr::str_match(line, 'gene_name "([^"]+)"')[, 2],
+    biotype       = stringr::str_match(line, 'gene_type "([^"]+)"')[, 2]
+  ) %>%
+  dplyr::mutate(ensembl_gene_id = stringr::str_remove(ensembl_gene_id_versioned, "\\.[0-9]+$")) %>%
+  dplyr::distinct()
+```
+
+# 2.2 GSE164416 Pre-Processing
+
+`scripts/00A_fastq_to_counts.sh` documents the raw FASTQ -> counts pipeline
+(SRA download, FastQC/MultiQC, fastp trimming, STAR 2-pass alignment,
+HTSeq-count) that *would* reproduce the author-supplied count matrix from
+scratch. It was authored and dry-run checked (`DRY_RUN=TRUE`) rather than
+executed against the real 133 samples, since the sequencing toolchain
+(sra-tools/STAR/HTSeq) wasn't installed locally and a full run needs ~500GB of
+disk. All downstream analysis uses the GEO-deposited count matrix directly.
+
+```{bash fastq-pipeline-config, eval=FALSE}
+# from scripts/00A_fastq_to_counts.sh
+# --- User-configurable settings ---
+THREADS=8
+DRY_RUN=TRUE        # set to true to print commands without running
+
+# DATASET:
+#   GEO: GSE164416   |  SRA: SRP300812  |  BioProject: PRJNA690574
+#   Reference genome: GRCh38 (hg38)  |  Annotation: GENCODE v46
+
+# Full list of 133 SRA run accessions for GSE164416
+SRA_ACCESSIONS=(
+    SRR13193797 SRR13193798 SRR13193799 SRR13193800 SRR13193801
+    SRR13193802 SRR13193803 SRR13193804 SRR13193805 SRR13193806
+    # ... (133 accessions total, see scripts/00A_fastq_to_counts.sh)
+)
+
+# PIPELINE STEPS:
+#   1. Download raw FASTQ (prefetch / fasterq-dump)
+#   2. FastQC + MultiQC on raw reads
+#   3. Adapter trimming (fastp)
+#   4. FastQC + MultiQC on trimmed reads
+#   5. Build STAR genome index (GRCh38 + GENCODE v46 GTF)
+#   6. STAR 2-pass alignment
+#   7. Sort/index BAM (SAMtools)
+#   8. Alignment QC (RSeQC / samtools flagstat)
+#   9. Gene-level counting (HTSeq-count)
+#  10. Merge per-sample counts into one count matrix
+```
+
+# 2.3 Gene Filtering and Normalisation
+
+Corresponds to: `scripts/02_qc_filter_normalise.R`. Subsets to the 98
+ND/IGT/T2D samples, removes low-count genes, and VST-transforms
+(`blind = TRUE`, i.e. without using disease-status labels).
+
+```{r qc-subset-and-filter, eval=FALSE}
+# from scripts/02_qc_filter_normalise.R
+sample_metadata_subset <- sample_metadata %>%
+  dplyr::filter(status %in% c("ND", "IGT", "T2D")) %>%
+  dplyr::mutate(status = factor(status, levels = c("ND", "IGT", "T2D")))
+
+count_matrix_subset <- count_matrix[, sample_metadata_subset$sample, drop = FALSE]
+
+stopifnot(identical(colnames(count_matrix_subset), sample_metadata_subset$sample))
+
+# Filter lowly expressed genes: count >= 10 in at least 20% of samples
+min_count   <- 10
+min_samples <- ceiling(0.20 * ncol(count_matrix_subset))
+keep_genes  <- rowSums(count_matrix_subset >= min_count) >= min_samples
+
+count_matrix_filtered <- count_matrix_subset[keep_genes, , drop = FALSE]
+# 58,336 genes -> ~20,042 genes retained after this filter
+```
+
+```{r qc-deseq-vst, eval=FALSE}
+# from scripts/02_qc_filter_normalise.R
+dds <- DESeqDataSetFromMatrix(
+  countData = round(count_matrix_filtered),
+  colData   = as.data.frame(sample_metadata_subset),
+  design    = ~ status
+)
+dds <- estimateSizeFactors(dds)
+normalized_counts <- counts(dds, normalized = TRUE)
+
+# VST chosen over rlog for this sample size; blind = TRUE so the transform
+# does not use the disease-status labels (avoids leaking group info into
+# a step that's meant to be an unsupervised variance stabilisation)
+vsd <- vst(dds, blind = TRUE)
+
+saveRDS(dds, file.path(qc_data_dir, "dds_qc_ready.rds"))
+saveRDS(vsd, file.path(qc_data_dir, "vsd_qc_ready.rds"))
+```
+
+PCA and sample-distance heatmaps were used to check for outliers before
+freezing this matrix for downstream use:
+
+```{r qc-pca, eval=FALSE}
+# from scripts/02_qc_filter_normalise.R
+vsd_matrix  <- assay(vsd)
+pca_result  <- prcomp(t(vsd_matrix), scale. = TRUE)
+percent_var <- round(100 * (pca_result$sdev^2 / sum(pca_result$sdev^2)), 1)
+
+pca_scatter <- ggplot(pca_coords, aes(x = PC1, y = PC2, color = status)) +
+  geom_point(size = 4, alpha = 0.85) +
+  labs(
+    title = "PCA of Variance-Stabilized Counts",
+    x = paste0("PC1 (", percent_var[1], "% variance)"),
+    y = paste0("PC2 (", percent_var[2], "% variance)")
+  )
+```
+
+# 2.4 Differential Expression Analysis
+
+Corresponds to: `scripts/03_differential_expression.R`. DESeq2, Wald test,
+three pairwise contrasts (ND as reference level), BH-adjusted, threshold
+`padj < 0.05 & |log2FC| > 1`.
+
+```{r de-build-dds, eval=FALSE}
+# from scripts/03_differential_expression.R
+sample_metadata <- sample_metadata %>%
+  dplyr::filter(sample %in% colnames(count_matrix_filtered)) %>%
+  dplyr::mutate(status = factor(status, levels = c("ND", "IGT", "T2D")))
+sample_metadata <- sample_metadata[match(colnames(count_matrix_filtered), sample_metadata$sample), ]
+
+dds <- DESeqDataSetFromMatrix(
+  countData = round(count_matrix_filtered),
+  colData   = as.data.frame(sample_metadata),
+  design    = ~status
+)
+dds$status <- relevel(dds$status, ref = "ND")
+
+dds <- DESeq(dds)   # negative binomial GLM + empirical Bayes dispersion shrinkage
+```
+
+```{r de-contrasts, eval=FALSE}
+# from scripts/03_differential_expression.R
+annotate_results <- function(res_object, gene_annotation_table) {
+  as.data.frame(res_object) %>%
+    tibble::rownames_to_column(var = "gene_id") %>%
+    dplyr::left_join(
+      gene_annotation_table %>% dplyr::select(original_gene_id, gene_symbol, gene_name, biotype),
+      by = c("gene_id" = "original_gene_id")
+    ) %>%
+    dplyr::arrange(padj, dplyr::desc(abs(log2FoldChange)))
+}
+
+extract_significant <- function(res_df, padj_cutoff = 0.05, lfc_cutoff = 1) {
+  res_df %>%
+    dplyr::filter(!is.na(padj)) %>%
+    dplyr::filter(padj < padj_cutoff, abs(log2FoldChange) > lfc_cutoff)
+}
+
+run_comparison <- function(dds_object, numerator, denominator, gene_annotation_table) {
+  res <- results(dds_object, contrast = c("status", numerator, denominator), alpha = 0.05)
+  res_df <- annotate_results(res, gene_annotation_table)
+  list(res = res, full = res_df, sig = extract_significant(res_df),
+       lncrna = extract_significant(res_df) %>% dplyr::filter(biotype == "lncRNA"))
+}
+
+comparison_igt_vs_nd  <- run_comparison(dds, "IGT", "ND",  gene_annotation)
+comparison_t2d_vs_nd  <- run_comparison(dds, "T2D", "ND",  gene_annotation)
+comparison_t2d_vs_igt <- run_comparison(dds, "T2D", "IGT", gene_annotation)
+```
+
+## 2.4.1 Covariate-Adjusted Sensitivity Analysis
+
+Corresponds to: `scripts/C1_de_covariate_adjusted.R`. Age (ANOVA p = 0.0077)
+and BMI (p = 0.0146) differed significantly across ND/IGT/T2D, so the primary
+status-only model was re-fit with both as covariates, as a parallel sensitivity
+check rather than a replacement model.
+
+```{r covariate-anova-check, eval=FALSE}
+# ANOVA check that motivated C1 (run interactively before writing C1)
+summary(aov(age ~ status, data = sample_metadata))   # p = 0.0077
+summary(aov(bmi ~ status, data = sample_metadata))   # p = 0.0146
+```
+
+```{r covariate-adjusted-model, eval=FALSE}
+# from scripts/C1_de_covariate_adjusted.R
+dds <- DESeqDataSetFromMatrix(
+  countData = round(count_matrix_filtered),
+  colData   = as.data.frame(sample_metadata),
+  design    = ~age + bmi + status
+)
+dds$status <- relevel(dds$status, ref = "ND")
+dds <- DESeq(dds)
+
+comparisons <- list(
+  T2D_vs_ND  = c("T2D", "ND"),
+  IGT_vs_ND  = c("IGT", "ND"),
+  T2D_vs_IGT = c("T2D", "IGT")
+)
+
+for (name in names(comparisons)) {
+  res    <- results(dds, contrast = c("status", comparisons[[name]][1], comparisons[[name]][2]), alpha = 0.05)
+  res_df <- annotate_results(res, gene_annotation)
+  sig_df <- extract_significant(res_df)
+  readr::write_tsv(sig_df, file.path(out_tables_dir, paste0("DESeq2_", name, "_covariate_adjusted_significant.tsv")))
+}
+```
+
+```{r covariate-overlap, eval=FALSE}
+# from scripts/C1_de_covariate_adjusted.R - comparing adjusted vs primary DEG lists
+orig_genes <- unique(orig_sig$gene_id)
+new_genes  <- unique(new_sig$gene_id)
+
+n_shared <- length(intersect(orig_genes, new_genes))
+n_lost   <- length(setdiff(orig_genes, new_genes))
+n_gained <- length(setdiff(new_genes, orig_genes))
+pct_survived <- round(100 * n_shared / length(orig_genes), 1)
+# T2D vs ND: 452/604 shared -> 74.8% of primary DEGs survive covariate adjustment
+```
+
+# 2.5 Long Non-Coding RNA Prioritisation
+
+Corresponds to: `scripts/04_lncrna_prioritisation.R`. Each significant lncRNA
+per comparison gets a composite score (mean of three min-max rescaled 0-1
+components), plus a separate recurrence score aggregated across all three
+comparisons.
+
+```{r lncrna-rescale-helper, eval=FALSE}
+# from scripts/04_lncrna_prioritisation.R
+rescale_01 <- function(x) {
+  if (all(is.na(x))) return(rep(NA_real_, length(x)))
+  rng <- range(x, na.rm = TRUE)
+  if (diff(rng) == 0) return(rep(1, length(x)))
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+```
+
+```{r lncrna-prioritisation-score, eval=FALSE}
+# from scripts/04_lncrna_prioritisation.R
+prioritise_lncrna <- function(lnc_df, comparison_label) {
+  lnc_df %>%
+    left_join(mean_expression, by = "gene_id") %>%
+    mutate(
+      abs_log2FC      = abs(log2FoldChange),
+      neg_log10_padj  = if_else(!is.na(padj) & padj > 0, -log10(padj), NA_real_)
+    ) %>%
+    mutate(
+      score_padj = rescale_01(neg_log10_padj),
+      score_lfc  = rescale_01(abs_log2FC),
+      score_expr = rescale_01(log1p(mean_normalized_expression))
+    ) %>%
+    mutate(prioritisation_score = (score_padj + score_lfc + score_expr) / 3) %>%
+    arrange(desc(prioritisation_score)) %>%
+    mutate(prioritisation_rank = row_number(), comparison = comparison_label)
+}
+
+ranked_igt_vs_nd  <- prioritise_lncrna(lnc_igt_vs_nd,  "IGT vs ND")
+ranked_t2d_vs_nd  <- prioritise_lncrna(lnc_t2d_vs_nd,  "T2D vs ND")
+ranked_t2d_vs_igt <- prioritise_lncrna(lnc_t2d_vs_igt, "T2D vs IGT")
+```
+
+```{r lncrna-recurrence, eval=FALSE}
+# from scripts/04_lncrna_prioritisation.R
+cross_comparison_summary <- all_ranked_long %>%
+  group_by(gene_id, gene_symbol, gene_name, biotype) %>%
+  summarise(
+    comparisons_present     = n(),
+    max_prioritisation_score = max(prioritisation_score, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    recurrence_score     = comparisons_present / 3,
+    global_priority_score = (recurrence_score + max_prioritisation_score) / 2
+  ) %>%
+  arrange(desc(global_priority_score))
+```
+
+# 2.6 WGCNA Network Construction
+
+Corresponds to: `scripts/05A_prepare_wgcna_inputs.R` (input QC,
+`goodSamplesGenes()`) and `scripts/05B_wgcna_construct_network.R` (soft
+threshold selection, `blockwiseModules()`, module-trait correlation).
+
+```{r wgcna-input-qc, eval=FALSE}
+# from scripts/05A_prepare_wgcna_inputs.R
+options(stringsAsFactors = FALSE)
+disableWGCNAThreads()
+
+datExpr0 <- as.data.frame(t(expr_mat))   # transpose: samples as rows, genes as columns
+
+gsg <- WGCNA::goodSamplesGenes(datExpr1, verbose = 3)
+if (!gsg$allOK) {
+  datExpr1 <- datExpr1[gsg$goodSamples, gsg$goodGenes, drop = FALSE]
+}
+```
+
+```{r wgcna-soft-threshold, eval=FALSE}
+# from scripts/05B_wgcna_construct_network.R
+powers <- c(1:10, seq(12, 30, by = 2))
+
+sft <- pickSoftThreshold(
+  datExpr,
+  powerVector = powers,
+  networkType = "signed",
+  corFnc      = "bicor",                       # bi-weight midcorrelation, robust to outliers
+  corOptions  = list(maxPOutliers = 0.1),
+  verbose = 5
+)
+
+fit_df <- tibble(
+  Power = sft$fitIndices[, 1],
+  SFT_R2 = -sign(sft$fitIndices[, 3]) * sft$fitIndices[, 2]
+)
+
+# Lowest power exceeding R^2 >= 0.80
+candidate_powers <- fit_df %>% filter(SFT_R2 >= 0.80)
+soft_power <- if (nrow(candidate_powers) > 0) min(candidate_powers$Power) else fit_df$Power[which.max(fit_df$SFT_R2)]
+# soft_power = 8 (R^2 = 0.85)
+```
+
+```{r wgcna-blockwise-modules, eval=FALSE}
+# from scripts/05B_wgcna_construct_network.R
+net <- blockwiseModules(
+  datExpr,
+  power       = soft_power,
+  corType     = "bicor",
+  maxPOutliers = 0.1,
+  networkType = "signed",
+  TOMType     = "signed",
+  minModuleSize   = 30,
+  reassignThreshold = 0,
+  mergeCutHeight  = 0.25,
+  numericLabels   = FALSE,
+  pamRespectsDendro = TRUE,
+  saveTOMs = FALSE,      # full 20,042-gene TOM not saved: memory/runtime cost
+  deepSplit = 2,
+  verbose = 5
+)
+
+module_colors     <- net$colors
+module_eigengenes <- orderMEs(net$MEs)
+# 30 modules detected (including grey) across 20,042 genes
+```
+
+```{r wgcna-module-trait-correlation, eval=FALSE}
+# from scripts/05B_wgcna_construct_network.R
+safe_cor_p <- function(x, y) {
+  out <- tryCatch(cor.test(x, y, method = "pearson"), error = function(e) NULL)
+  if (is.null(out)) return(c(NA_real_, NA_real_))
+  c(unname(out$estimate), out$p.value)
+}
+
+# 240 module x trait tests (raw p-values; BH-corrected post hoc since
+# cor.test() itself does not adjust for multiple comparisons)
+for (i in seq_along(module_names)) {
+  for (j in seq_along(trait_names)) {
+    x <- ME_mat[[module_names[i]]]
+    y <- trait_data_numeric[[trait_names[j]]]
+    keep <- complete.cases(x, y)
+    if (sum(keep) >= 10) {
+      tmp <- safe_cor_p(x[keep], y[keep])
+      cor_mat[i, j] <- tmp[1]
+      p_mat[i, j]   <- tmp[2]
+    }
+  }
+}
+```
+
+Hub-gene visualisation used a TOM recomputed only for the top 20 hub genes per
+focus module (160 genes total), exported via `WGCNA::exportNetworkToCytoscape()`
+(see `scripts/W1_tom_heatmap.R`), rather than exporting the full 20,042-gene TOM.
+
+# 2.7 Module-Trait Correlation and Hub Gene Scoring
+
+Corresponds to: `scripts/05C_hub_gene_prioritisation.R`. Focus modules are the
+union of (a) trait-associated modules, (b) a default set of interpretable
+mid-sized modules, and (c) any module containing a top-20 prioritised lncRNA
+not already captured.
+
+```{r hub-focus-modules, eval=FALSE}
+# from scripts/05C_hub_gene_prioritisation.R
+default_focus_modules <- c("brown", "yellow", "green", "red", "black")
+
+module_interest <- module_trait_summary %>%
+  filter(trait %in% c("status_ND", "status_IGT", "status_T2D")) %>%
+  mutate(module_clean = gsub("^ME", "", module)) %>%
+  filter(module_clean != "grey") %>%
+  arrange(p_value, desc(abs(correlation)))
+
+overlap_modules <- intersect(default_focus_modules, module_interest$module_clean)
+focus_modules <- if (length(overlap_modules) >= 3) overlap_modules else default_focus_modules
+
+# then: add any module containing a top-20 prioritised lncRNA not already in focus_modules
+# (see full logic in scripts/05C_hub_gene_prioritisation.R)
+# -> 8 focus modules, 5,760 genes total
+```
+
+```{r hub-score-composite, eval=FALSE}
+# from scripts/05C_hub_gene_prioritisation.R
+minmax_rescale <- function(x) {
+  x <- as.numeric(x)
+  rng <- range(x, na.rm = TRUE)
+  if (isTRUE(all.equal(rng[1], rng[2]))) return(rep(1, length(x)))
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+# Module membership (kME) = correlation of each gene with its module eigengene
+kME_mat <- as.data.frame(cor(datExpr, ME_mat, use = "pairwise.complete.obs", method = "pearson"))
+
+# Gene significance (GS) = correlation of each gene with disease status / clinical traits
+gs_cor <- apply(datExpr, 2, function(g) safe_cor(g, traits_df[["status_T2D"]]))
+
+hub_tbl_focus <- hub_tbl_focus %>%
+  mutate(
+    score_kME  = minmax_rescale(abs_own_kME),
+    score_GS   = minmax_rescale(priority_gs),      # GSabs_status_T2D preferred when available
+    score_DE   = minmax_rescale(de_strength),       # -log10(padj) from T2D vs ND
+    score_LFC  = minmax_rescale(de_lfc_abs)
+  ) %>%
+  mutate(
+    hub_score_all_genes = rowMeans(cbind(score_kME, score_GS, score_DE, score_LFC), na.rm = TRUE)
+  )
+
+hub_ranked_all <- hub_tbl_focus %>%
+  group_by(module_color) %>%
+  arrange(desc(hub_score_all_genes), .by_group = TRUE) %>%
+  mutate(hub_rank_all_genes = row_number()) %>%
+  ungroup()
+```
+
+# 2.8 lncRNA Network Integration
+
+Corresponds to: `scripts/06_lncrna_annotation.R`. Weighted integration score
+(unlike the unweighted composites in 2.5/2.7), designed so lncRNA-specific
+evidence (priority + recurrence, 50%) outweighs generic network-position
+evidence (module correlation + hub centrality + gene significance, 50%).
+
+```{r lncrna-network-integration-score, eval=FALSE}
+# from scripts/06_lncrna_annotation.R
+rescale01 <- function(x) {
+  x <- suppressWarnings(as.numeric(x))
+  rng <- range(x, na.rm = TRUE)
+  if (diff(rng) == 0) return(ifelse(is.na(x), NA_real_, 1))
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+lnc_module_tbl <- lnc_module_tbl %>%
+  mutate(
+    score_lnc_priority = rescale01(prioritisationscore),
+    score_recurrence   = rescale01(recurrencescore),
+    score_module_cor   = rescale01(abs(best_cor)),
+    score_hub_central  = rescale01(abs_own_kME),
+    score_gs           = rescale01(priority_gs)
+  ) %>%
+  mutate(
+    network_integration_score =
+      0.30 * score_lnc_priority +
+      0.20 * score_recurrence   +
+      0.20 * score_module_cor   +
+      0.15 * score_hub_central  +
+      0.15 * score_gs
+  ) %>%
+  arrange(desc(network_integration_score))
+
+# Complete-case criterion: only lncRNAs with a valid module assignment AND
+# non-missing values across all five components get a non-missing score
+lnc_candidates_network <- lnc_module_tbl %>%
+  filter(!is.na(module_color), !is.na(network_integration_score))
+```
+
+# 2.9 Functional Enrichment Analysis
+
+Corresponds to: `scripts/07_enrichment_analysis.R`. `clusterProfiler`
+`enrichGO`/`enrichKEGG`, Ensembl -> Entrez via `org.Hs.eg.db`, BH-adjusted
+(q < 0.05), one enrichment set per DE comparison and per WGCNA focus module.
+
+```{r enrichment-id-mapping, eval=FALSE}
+# from scripts/07_enrichment_analysis.R
+strip_version <- function(x) sub("\\.\\d+$", "", x)
+
+ensembl_to_entrez <- function(ensembl_ids) {
+  mapping <- AnnotationDbi::select(
+    org.Hs.eg.db,
+    keys = strip_version(ensembl_ids),
+    columns = c("ENSEMBL", "ENTREZID", "SYMBOL"),
+    keytype = "ENSEMBL"
+  )
+  mapping[!is.na(mapping$ENTREZID) & !duplicated(mapping$ENSEMBL), ]
+}
+
+# Universe = union of all tested genes across the three DE comparisons
+universe_ensembl <- unique(unlist(lapply(de_all, function(d) d$gene_id)))
+universe_map    <- ensembl_to_entrez(strip_version(na.omit(universe_ensembl)))
+universe_entrez <- unique(na.omit(universe_map$ENTREZID))
+# 20,042 tested genes -> 17,000 (83.8%) mapped to Entrez
+```
+
+```{r enrichment-go-kegg, eval=FALSE}
+# from scripts/07_enrichment_analysis.R
+run_go_enrich <- function(gene_entrez, universe_entrez, label, ont = "BP") {
+  if (length(gene_entrez) < 5) return(NULL)
+  enrichGO(
+    gene = gene_entrez, universe = universe_entrez, OrgDb = org.Hs.eg.db,
+    ont = ont, pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2,
+    readable = TRUE
+  )
+}
+
+run_kegg_enrich <- function(gene_entrez, universe_entrez, label) {
+  if (length(gene_entrez) < 5) return(NULL)
+  enrichKEGG(
+    gene = gene_entrez, universe = universe_entrez, organism = "hsa",
+    pAdjustMethod = "BH", pvalueCutoff = 0.05, qvalueCutoff = 0.2
+  )
+}
+
+for (cmp in names(de_sig)) {
+  sig_entrez <- unique(na.omit(ensembl_to_entrez(strip_version(de_sig[[cmp]]$gene_id))$ENTREZID))
+  go_bp <- run_go_enrich(sig_entrez, universe_entrez, cmp, ont = "BP")
+  go_mf <- run_go_enrich(sig_entrez, universe_entrez, cmp, ont = "MF")
+  kegg  <- run_kegg_enrich(sig_entrez, universe_entrez, cmp)
+}
+
+for (mod in focus_modules) {
+  mod_entrez <- unique(na.omit(ensembl_to_entrez(strip_version(
+    module_assignments$gene_id[module_assignments$module_color == mod]
+  ))$ENTREZID))
+  go_bp <- run_go_enrich(mod_entrez, universe_entrez, mod, ont = "BP")
+}
+```
+
+# 2.10 Machine Learning Classification
+
+Two layers of ML code exist in this repo:
+
+* `scripts/08_ml_models.py` - the main classification pipeline (RF, L2
+  logistic regression, RBF-SVM, XGBoost+SHAP) using standard 5-fold
+  stratified CV on hub genes selected from the full 98-sample WGCNA run.
+* `scripts/N0-N5_*` - a leakage check written after noticing that the hub
+  genes fed into script 08 were selected using module-trait correlation
+  computed across *all* 98 samples, including each CV fold's own held-out
+  labels. The `N` scripts redo feature selection (WGCNA + hub scoring)
+  train-only, then evaluate once on a held-out split that never influenced
+  feature selection - this is the "nested cross-validation" framing described
+  in the methodology text (outer estimate of generalisation performance;
+  inner loop restricted to the training fold only).
+
+```{r ml-cv-setup, eval=FALSE}
+# from scripts/08_ml_models.py (shown here for reference - runs as Python)
+```
+
+```{python ml-classifiers, eval=FALSE}
+# from scripts/08_ml_models.py
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+models = {
+    "RandomForest": Pipeline([
+        ("scaler", StandardScaler()),
+        ("clf", RandomForestClassifier(
+            n_estimators=300, max_features="sqrt", class_weight="balanced",
+            random_state=42, n_jobs=-1))
+    ]),
+    "LogisticRegression": Pipeline([
+        ("scaler", StandardScaler()),
+        ("clf", LogisticRegression(C=1.0, max_iter=2000, class_weight="balanced",
+                                    solver="lbfgs", random_state=42))
+    ]),
+    "SVM_RBF": Pipeline([
+        ("scaler", StandardScaler()),
+        ("clf", SVC(kernel="rbf", C=1.0, probability=True,
+                     class_weight="balanced", random_state=42))
+    ]),
+}
+
+for name, model in models.items():
+    cv_result = cross_validate(model, X_bin, y_bin, cv=cv,
+                                scoring=["roc_auc", "balanced_accuracy"])
+    y_prob = cross_val_predict(model, X_bin, y_bin, cv=cv, method="predict_proba")[:, 1]
+```
+
+```{python ml-permutation-test, eval=FALSE}
+# from scripts/08_ml_models.py
+N_PERMUTATIONS = 100  # halves runtime vs 200 for equivalent p-value resolution (1/N)
+
+score, perm_scores, pvalue = permutation_test_score(
+    models[best_model_name], X_bin, y_bin,
+    scoring="roc_auc", cv=cv, n_permutations=N_PERMUTATIONS,
+    random_state=42, n_jobs=-1
+)
+```
+
+```{python ml-rf-gini-importance, eval=FALSE}
+# from scripts/08_ml_models.py - Gini (mean decrease in impurity) importance
+rf_model.fit(X_bin, y_bin)
+rf_clf = rf_model.named_steps["clf"]
+
+importances = pd.Series(
+    rf_clf.feature_importances_, index=feature_names
+).sort_values(ascending=False)
+
+# Permutation importance as a more reliable companion estimate
+perm_imp = permutation_importance(
+    rf_model, X_bin, y_bin, n_repeats=50, random_state=42,
+    n_jobs=-1, scoring="roc_auc"
+)
+```
+
+```{python ml-shap-xgboost, eval=FALSE}
+# from scripts/08_ml_models.py
+xgb_model = xgb.XGBClassifier(
+    n_estimators=300, max_depth=4, learning_rate=0.05,
+    subsample=0.8, colsample_bytree=0.8,
+    objective="binary:logistic", eval_metric="logloss",
+    random_state=42, n_jobs=-1
+)
+
+xgb_model.fit(X_scaled_bin, y_bin)
+explainer   = shap.TreeExplainer(xgb_model)
+shap_values = explainer.shap_values(X_scaled_bin)
+
+mean_shap = pd.DataFrame({
+    "gene": feature_names,
+    "mean_shap": np.abs(shap_values).mean(axis=0),
+}).sort_values("mean_shap", ascending=False)
+```
+
+```{r nested-cv-train-test-split, eval=FALSE}
+# from scripts/N1_nested_split.R - the leakage-free split used by N2-N5
+set.seed(SEED)
+
+# Stratified 80/20 split by status, done BEFORE any WGCNA/hub-gene step
+# touches the held-out samples
+split_list <- lapply(split(traits$sampleid, traits$status), function(ids) {
+  n_test   <- max(1, round(length(ids) * 0.2))
+  test_ids <- sample(ids, n_test)
+  data.frame(sampleid = ids, split = ifelse(ids %in% test_ids, "test", "train"))
+})
+split_df <- bind_rows(split_list)
+```
+
+```{python nested-cv-holdout-eval, eval=FALSE}
+# from scripts/N4_nested_ml_validation.py
+# Feature set: hub genes selected using ONLY the 78 TRAIN samples
+# (from N0 train-only DE, N2 train-only WGCNA, N3 train-only hub scoring -
+# none of which ever saw the 20 held-out samples' labels)
+hub_genes = (
+    hub_df.sort_values("hub_rank_all_genes")
+    .groupby("module_color").head(10)["gene_id"].unique().tolist()
+)
+
+X_train = X_full.loc[train_bin].values
+y_train = (traits_df.loc[train_bin, "status"] == "T2D").astype(int).values
+X_test  = X_full.loc[test_bin].values
+y_test  = (traits_df.loc[test_bin, "status"] == "T2D").astype(int).values
+
+# fit on TRAIN, evaluate ONCE on the never-touched held-out TEST samples
+for name, model in models.items():
+    model.fit(X_train, y_train)
+```
+
+# 2.11 Software and Package Versions
+
+```{r session-info, eval=FALSE}
+# actual session/version check used to write Table 2.1's software row
+cat("R version:", R.version.string, "\n")
+packageVersion("DESeq2")
+packageVersion("WGCNA")
+packageVersion("clusterProfiler")
+packageVersion("org.Hs.eg.db")
+packageVersion("dplyr"); packageVersion("tidyr"); packageVersion("readr")
+packageVersion("ggplot2")
+packageVersion("biomaRt")
+```
+
+```{python session-info-python, eval=FALSE}
+# python side - see r_package_versions.csv / requirements.txt for the pinned list
+import sklearn, xgboost, shap, numpy, pandas, scipy
+print(sklearn.__version__, xgboost.__version__, shap.__version__)
+print(numpy.__version__, pandas.__version__, scipy.__version__)
+```
+
+<!--
+Script map for quick cross-referencing while editing the write-up:
+
+  00_download_data.R          -> 2.1  raw data + gene annotation
+  01_prepare_metadata.R       -> 2.1  sample metadata integration
+  00A_fastq_to_counts.sh      -> 2.2  FASTQ->counts pipeline (dry-run only)
+  02_qc_filter_normalise.R    -> 2.3  filtering + VST
+  03_differential_expression.R-> 2.4  DESeq2 pairwise contrasts
+  C1_de_covariate_adjusted.R  -> 2.4.1 age+bmi sensitivity model
+  04_lncrna_prioritisation.R  -> 2.5  lncRNA composite + recurrence score
+  05A_prepare_wgcna_inputs.R  -> 2.6  WGCNA input QC
+  05B_wgcna_construct_network.R-> 2.6 soft power, blockwiseModules, module-trait cor
+  W1_tom_heatmap.R            -> 2.6  hub-gene-only TOM export
+  05C_hub_gene_prioritisation.R-> 2.7 focus modules, composite hub score
+  06_lncrna_annotation.R      -> 2.8  weighted network integration score
+  07_enrichment_analysis.R    -> 2.9  GO/KEGG enrichment
+  08_ml_models.py             -> 2.10 RF/LR/SVM/XGBoost + SHAP, permutation test
+  N0-N5_*                     -> 2.10 leakage-free nested holdout re-check
+  09_figures_tables.R         -> figure/table generation for Chapter 3
+  10_report_writer.py         -> results narrative assembly
+
+Still to reconcile against the write-up:
+  - [ ] confirm Table 2.2b numbers regenerate from C1's deg_overlap_comparison.csv
+  - [ ] double check GENCODE v46 biotype count (57,623) matches current gene_annotation.tsv
+  - [ ] re-run 07 after any DE re-run, since universe_entrez depends on de_all
+-->

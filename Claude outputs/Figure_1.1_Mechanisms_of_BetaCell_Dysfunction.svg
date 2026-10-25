@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="714" viewBox="0 0 1180 714">
+<rect x="0" y="0" width="1180" height="714" fill="#ffffff"/>
+<defs><marker id="arrowhead" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#475569"/></marker></defs>
+<text x="590.0" y="38" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="21" font-weight="700" fill="#1f2933">Convergent Mechanisms of Islet β-Cell Dysfunction in T2DM</text>
+<text x="590.0" y="60" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#52606d" font-style="italic">Multiple, co-ordinately disrupted stress pathways converge on a common failure state</text>
+<rect x="390.0" y="88" width="400" height="54" rx="10" ry="10" fill="#eef2f7" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="116.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="600" fill="#1f2933">Peripheral Insulin Resistance</text>
+<line x1="590.0" y1="142" x2="590.0" y2="168" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="390.0" y="168" width="400" height="58" rx="10" ry="10" fill="#e1edf9" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="190.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#1f2933">β-Cell Compensatory Hyperinsulinaemia</text>
+<text x="590.0" y="217.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">attempt to maintain normoglycaemia</text>
+<path d="M 790.0,197 L 828.0,198" fill="none" stroke="#475569" stroke-width="1.6" stroke-dasharray="6,5" marker-end="url(#arrowhead)"/>
+<rect x="830.0" y="176" width="260" height="58" rx="10" ry="10" fill="#ffffff" stroke="#334155" stroke-width="1.6"/>
+<text x="960.0" y="189.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#1f2933">Compensation sustained</text>
+<text x="960.0" y="214.8" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">normoglycaemia maintained —</text>
+<text x="960.0" y="231.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">outside this dissertation's scope</text>
+<line x1="590.0" y1="226" x2="590.0" y2="256" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="30.0" y="256" width="210" height="108" rx="10" ry="10" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="135.0" y="288.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Glucotoxicity</text>
+<text x="135.0" y="313.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">chronic hyperglycaemia →</text>
+<text x="135.0" y="328.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">IL6/IL11 signalling →</text>
+<text x="135.0" y="343.7" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">fibrotic change</text>
+<rect x="257.5" y="256" width="210" height="108" rx="10" ry="10" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="362.5" y="288.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Lipotoxicity</text>
+<text x="362.5" y="313.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">↑ free fatty acids → ER</text>
+<text x="362.5" y="328.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">stress; MALAT1/PTBP1/PKM2</text>
+<text x="362.5" y="343.7" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">dysregulation</text>
+<rect x="485.0" y="256" width="210" height="108" rx="10" ry="10" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="286.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Oxidative &amp;</text>
+<text x="590.0" y="304.9" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Mitochondrial Stress</text>
+<text x="590.0" y="330.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">ferroptosis-related gene</text>
+<text x="590.0" y="345.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">dysregulation</text>
+<rect x="712.5" y="256" width="210" height="108" rx="10" ry="10" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="817.5" y="288.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">ER Stress Response</text>
+<text x="817.5" y="313.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">cytokine/UPR pathways</text>
+<text x="817.5" y="328.5" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">intersect T2DM genetic risk</text>
+<text x="817.5" y="343.7" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">variants</text>
+<rect x="940.0" y="256" width="210" height="108" rx="10" ry="10" fill="#e6f4ea" stroke="#334155" stroke-width="1.6"/>
+<text x="1045.0" y="286.4" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Epigenetic</text>
+<text x="1045.0" y="304.9" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13.5" font-weight="600" fill="#1f2933">Dedifferentiation</text>
+<text x="1045.0" y="330.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">polycomb-mediated loss of</text>
+<text x="1045.0" y="345.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.2" font-style="italic" fill="#52606d">identity; ↓RFX6, ↓Sox5</text>
+<line x1="135.0" y1="364" x2="135.0" y2="388" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<line x1="362.5" y1="364" x2="362.5" y2="388" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<line x1="590.0" y1="364" x2="590.0" y2="388" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<line x1="817.5" y1="364" x2="817.5" y2="388" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<line x1="1045.0" y1="364" x2="1045.0" y2="388" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<path d="M 135.0,388 L 1045.0,388" stroke="#475569" stroke-width="1.6"/>
+<line x1="590.0" y1="388" x2="590.0" y2="410" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="330.0" y="410" width="520" height="82" rx="10" ry="10" fill="#fde9e1" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="444.9" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="600" fill="#1f2933">β-CELL DYSFUNCTION</text>
+<text x="590.0" y="475.2" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">the central, necessary lesion in the transition to overt T2DM</text>
+<line x1="590.0" y1="492" x2="590.0" y2="522" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="310.0" y="522" width="560" height="74" rx="10" ry="10" fill="#fdf3d8" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="544.1" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="15.5" font-weight="600" fill="#1f2933">Islet-Level Consequences</text>
+<text x="590.0" y="572.0" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">↓ glucose-stimulated insulin secretion · ↓ β-cell mass (apoptosis) · altered</text>
+<text x="590.0" y="588.3" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">islet architecture</text>
+<line x1="590.0" y1="596" x2="590.0" y2="626" stroke="#475569" stroke-width="1.8" marker-end="url(#arrowhead)"/>
+<rect x="370.0" y="626" width="440" height="58" rx="10" ry="10" fill="#f0e6f6" stroke="#334155" stroke-width="1.6"/>
+<text x="590.0" y="648.6" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="600" fill="#1f2933">Type 2 Diabetes Mellitus</text>
+<text x="590.0" y="678.0" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.3" font-style="italic" fill="#52606d">chronic hyperglycaemia</text>
+</svg>

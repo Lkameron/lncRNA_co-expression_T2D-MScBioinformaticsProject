@@ -14,7 +14,7 @@
 
 required_cran <- c(
   "dplyr", "readr", "tibble", "stringr", "ggplot2", "tidyr",
-  "forcats", "writexl", "data.table", "scales"
+  "forcats", "writexl", "data.table", "scales", "R.utils"
 )
 
 required_bioc <- c(
@@ -110,6 +110,19 @@ ensembl_to_entrez <- function(ensembl_ids) {
   mapping
 }
 
+# enrichGO/enrichKEGG can silently hang rather than error when a network
+# call underneath them (KEGG REST, or clusterProfiler's own online
+# version-check) stalls instead of failing outright -- this happened during
+# development (a run sat for 3+ hours using ~3 min of actual CPU time before
+# it was killed by hand). withTimeout() forces a hard ceiling so one stalled
+# call can't take the whole enrichment run down with it; onTimeout = "warning"
+# raises a condition we catch below and treat the same as any other failure.
+ENRICH_TIMEOUT_SECS <- 180
+
+with_enrich_timeout <- function(expr) {
+  R.utils::withTimeout(expr, timeout = ENRICH_TIMEOUT_SECS, onTimeout = "error")
+}
+
 run_go_enrich <- function(gene_entrez, universe_entrez, label,
                            ont = "BP", p_cutoff = 0.05, q_cutoff = 0.2) {
   if (length(gene_entrez) < 5) {
@@ -117,17 +130,19 @@ run_go_enrich <- function(gene_entrez, universe_entrez, label,
     return(NULL)
   }
   tryCatch(
-    enrichGO(
-      gene          = gene_entrez,
-      universe      = universe_entrez,
-      OrgDb         = org.Hs.eg.db,
-      ont           = ont,
-      pAdjustMethod = "BH",
-      pvalueCutoff  = p_cutoff,
-      qvalueCutoff  = q_cutoff,
-      readable      = TRUE
+    with_enrich_timeout(
+      enrichGO(
+        gene          = gene_entrez,
+        universe      = universe_entrez,
+        OrgDb         = org.Hs.eg.db,
+        ont           = ont,
+        pAdjustMethod = "BH",
+        pvalueCutoff  = p_cutoff,
+        qvalueCutoff  = q_cutoff,
+        readable      = TRUE
+      )
     ),
-    error = function(e) { cat("  GO", ont, "error:", conditionMessage(e), "\n"); NULL }
+    error = function(e) { cat("  GO", ont, "error/timeout for", label, ":", conditionMessage(e), "\n"); NULL }
   )
 }
 
@@ -138,15 +153,17 @@ run_kegg_enrich <- function(gene_entrez, universe_entrez, label,
     return(NULL)
   }
   tryCatch(
-    enrichKEGG(
-      gene          = gene_entrez,
-      universe      = universe_entrez,
-      organism      = "hsa",
-      pAdjustMethod = "BH",
-      pvalueCutoff  = p_cutoff,
-      qvalueCutoff  = q_cutoff
+    with_enrich_timeout(
+      enrichKEGG(
+        gene          = gene_entrez,
+        universe      = universe_entrez,
+        organism      = "hsa",
+        pAdjustMethod = "BH",
+        pvalueCutoff  = p_cutoff,
+        qvalueCutoff  = q_cutoff
+      )
     ),
-    error = function(e) { cat("  KEGG error:", conditionMessage(e), "\n"); NULL }
+    error = function(e) { cat("  KEGG error/timeout for", label, ":", conditionMessage(e), "\n"); NULL }
   )
 }
 
