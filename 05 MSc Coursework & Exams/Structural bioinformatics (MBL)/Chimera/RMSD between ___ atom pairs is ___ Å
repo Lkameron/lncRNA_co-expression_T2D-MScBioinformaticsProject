@@ -1,0 +1,19 @@
+Model 0 (smtl_4m86_1.pdb) appears to be a protein without secondary structure assignments.
+Automatically computing assignments using 'ksdssp' and parameter values:
+  energy cutoff -0.5
+  minimum helix length 3
+  minimum strand length 3
+Use command 'help ksdssp' for more information.
+Model 1 (model_01.pdb) appears to be a protein without secondary structure assignments.
+Automatically computing assignments using 'ksdssp' and parameter values:
+  energy cutoff -0.5
+  minimum helix length 3
+  minimum strand length 3
+Use command 'help ksdssp' for more information.
+Must select at least one reference and match item in different models.
+
+Must select at least one reference and match item in different models.
+
+Must select at least one reference and match item in different models.
+
+
