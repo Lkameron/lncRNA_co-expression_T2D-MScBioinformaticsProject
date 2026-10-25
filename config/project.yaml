@@ -1,0 +1,82 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ARCANA — Project Configuration
+# Edit this file to run ARCANA on your own RNA-seq dataset.
+# All other scripts and the AI assistant read their settings from here.
+# ─────────────────────────────────────────────────────────────────────────────
+
+project:
+  name: "Pancreatic Islet T2D lncRNA Co-expression"
+  dataset_id: "GSE164416"
+  description: >
+    lncRNA co-expression network analysis of pancreatic islet donors
+    spanning Type 2 Diabetes (T2D), Impaired Glucose Tolerance (IGT),
+    and Normal Donors (ND). 36 samples from the Human Islet Research Network.
+
+# ─── Species & genome ─────────────────────────────────────────────────────────
+species:
+  name: "human"           # human | mouse | rat
+  genome: "GRCh38"
+  ensembl_version: 109    # used for BioMart annotation download
+
+# ─── Input data paths (relative to project root) ──────────────────────────────
+data:
+  counts_matrix: "data/processed/counts_filtered_normalised.rds"
+  raw_counts:    "data/processed/counts_matrix.tsv"
+  metadata:      "data/metadata/sample_metadata.csv"
+
+# ─── Metadata column names ────────────────────────────────────────────────────
+# These must match the column headers in your metadata CSV.
+metadata:
+  sample_id_col:   "sample_id"    # column identifying each sample
+  condition_col:   "condition"    # the main grouping variable (e.g. T2D, ND)
+
+# ─── Differential expression comparisons ──────────────────────────────────────
+# Add or remove comparisons. group_a is the treatment; group_b is the reference.
+# Values must match entries in the condition_col column of your metadata.
+comparisons:
+  - name: "T2D_vs_ND"
+    group_a: "T2D"
+    group_b: "ND"
+    label: "T2D vs. Normal Donors"
+  - name: "IGT_vs_ND"
+    group_a: "IGT"
+    group_b: "ND"
+    label: "IGT vs. Normal Donors"
+  - name: "T2D_vs_IGT"
+    group_a: "T2D"
+    group_b: "IGT"
+    label: "T2D vs. IGT"
+
+# ─── Covariates to adjust for in DESeq2 ──────────────────────────────────────
+# Leave empty [] if you have no covariates.
+de_covariates: []   # e.g. ["age", "sex", "batch"]
+
+# ─── Trait correlations for WGCNA module-trait heatmap ───────────────────────
+# List the metadata columns you want correlated with module eigengenes.
+traits:
+  continuous:
+    - hba1c
+    - bmi
+    - age
+  binary:
+    - status_T2D
+
+# ─── WGCNA settings ───────────────────────────────────────────────────────────
+wgcna:
+  soft_power: 10          # set to null to auto-detect from scale-free topology
+  min_module_size: 30
+  merge_cut_height: 0.25
+  n_focus_modules: 5      # top N trait-associated modules for hub gene analysis
+
+# ─── DE thresholds ────────────────────────────────────────────────────────────
+de_thresholds:
+  padj: 0.05
+  log2fc: 1.0
+
+# ─── Output ───────────────────────────────────────────────────────────────────
+output:
+  results_dir: "results"
+  figures_dpi: 300
+  figures_formats:
+    - png
+    - pdf

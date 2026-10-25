@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/32030252/README.md)
 # Pancreatic Islet T2D Co-expression & lncRNA Prioritisation
 
 An integrative RNA-seq analysis of human pancreatic islet transcriptomes across the normoglycaemic → impaired glucose tolerance → type 2 diabetes (ND–IGT–T2D) disease continuum. Combines differential expression, long non-coding RNA (lncRNA) prioritisation, weighted gene co-expression network analysis (WGCNA), functional enrichment, and machine learning classification into a single reproducible pipeline, built on the publicly available dataset from Wigger et al. (2021, *Nature Metabolism*, GSE164416).

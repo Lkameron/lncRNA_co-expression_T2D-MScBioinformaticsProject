@@ -264,7 +264,7 @@ cat("Prepared WGCNA matrix: ", nrow(datExpr), " samples x ", ncol(datExpr), " ge
 
 # Choose modules of interest
 
-default_focus_modules <- c("brown", "yellow", "green", "red", "black")
+default_focus_modules <- c("brown", "yellow", "green", "red", "black", "magenta")
 
 cat("Selecting modules of interest...\n")
 
@@ -300,6 +300,14 @@ if (has_module_trait_summary) {
       module_focus_reason <- "Top disease-status-associated modules from module-trait analysis"
     }
   }
+}
+
+# Magenta requested explicitly as a focus module regardless of whether it
+# clears the trait-association overlap above (see lncRNA-driven addition
+# below for the same forced-inclusion pattern).
+if (!"magenta" %in% focus_modules) {
+  cat("Forcing magenta into focus modules (requested explicitly).\n")
+  focus_modules <- c(focus_modules, "magenta")
 }
 
 focus_modules <- unique(focus_modules)
@@ -592,13 +600,22 @@ hub_tbl_focus <- hub_tbl_focus %>%
     score_lnc_external = minmax_rescale(external_lnc_score)
   ) %>%
   mutate(
-    hub_score_all_genes = rowMeans(
-      cbind(score_kME, score_GS, score_DE, score_LFC),
-      na.rm = TRUE
+    # Complete-case scoring: a gene only gets a composite score once every
+    # input component is present. rowMeans(na.rm = TRUE) previously averaged
+    # over whichever components happened to be non-NA, which silently
+    # inflated the score of genes missing DE evidence (e.g. DESeq2's
+    # independent-filtering/outlier NA padj) by dividing over a smaller
+    # denominator. This now matches the complete-case criterion already used
+    # for the lncRNA network integration score in 06_lncrna_annotation.R.
+    hub_score_all_genes = dplyr::if_else(
+      rowSums(is.na(cbind(score_kME, score_GS, score_DE, score_LFC))) == 0,
+      rowMeans(cbind(score_kME, score_GS, score_DE, score_LFC)),
+      NA_real_
     ),
-    hub_score_lncRNA = rowMeans(
-      cbind(score_kME, score_GS, score_DE, score_LFC, score_lnc_external),
-      na.rm = TRUE
+    hub_score_lncRNA = dplyr::if_else(
+      rowSums(is.na(cbind(score_kME, score_GS, score_DE, score_LFC, score_lnc_external))) == 0,
+      rowMeans(cbind(score_kME, score_GS, score_DE, score_LFC, score_lnc_external)),
+      NA_real_
     )
   )
 

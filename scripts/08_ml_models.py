@@ -22,6 +22,16 @@ Outputs:
     results/ml/tables/  — metrics, importances, SHAP values, predictions
     results/ml/plots/   — ROC, SHAP beeswarm/waterfall, UMAP, heatmap
     results/ml/shap/    — per-gene SHAP summary JSON (for report writer)
+
+NOTE ON LEAKAGE: the hub genes used as features here (HUB_PATH above) were
+selected via WGCNA + module-trait correlation computed across ALL 98 samples,
+including the labels of whatever samples later land in each 5-fold CV test
+split. That inflates the AUC/BACC reported by this script. The leakage-free
+re-evaluation lives in scripts/N0-N5_*, which re-derive hub genes from a
+train-only split and evaluate once on a held-out set that never influenced
+feature selection — see results/nested_validation/<RUN_ID>/tables/ for those
+numbers. Cite N5's aggregated holdout metrics, not this script's, as the
+headline classification result.
 """
 
 import os

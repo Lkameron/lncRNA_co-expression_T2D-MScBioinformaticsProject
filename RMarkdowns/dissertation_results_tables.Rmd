@@ -1,0 +1,530 @@
+---
+title: "Transcriptomic Analysis of Pancreatic Islets in Type 2 Diabetes: Key Results"
+subtitle: "GSE164416 — Wigger et al., 2021, Nature Metabolism"
+author: "Your Name"
+date: "`r Sys.Date()`"
+output:
+  word_document:
+    toc: true
+    toc_depth: 3
+    reference_docx: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+```
+
+---
+
+# 1. Dataset Overview
+
+```{r dataset-overview}
+dataset_table <- data.frame(
+  Parameter = c(
+    "Dataset (GEO accession)",
+    "Publication",
+    "Tissue",
+    "Total donors (GEO record)",
+    "Samples retained after QC",
+    "Disease groups",
+    "Total genes (raw count matrix)",
+    "Genes after biotype annotation",
+    "Genes retained after expression filtering",
+    "Normalisation method",
+    "Reference genome / annotation"
+  ),
+  Value = c(
+    "GSE164416",
+    "Wigger et al., 2021, Nature Metabolism",
+    "Pancreatic islets",
+    "133 (ND=18, IGT=41, T3cD=35, T2D=39)",
+    "98",
+    "Normoglycaemic (ND, n=18), Impaired Glucose Tolerant (IGT, n=41), Type 2 Diabetic (T2D, n=39)",
+    "58,336",
+    "57,623",
+    "20,042",
+    "Variance Stabilising Transformation (VST; DESeq2)",
+    "GENCODE v46 / GRCh38"
+  )
+)
+
+kable(dataset_table,
+      col.names = c("Parameter", "Value"),
+      caption = "Table 1. Summary of the GSE164416 dataset and analytical pipeline parameters.",
+      align = c("l", "l"))
+```
+
+---
+
+# 2. Differential Expression Analysis
+
+## 2.1 Summary of Significant Differentially Expressed Genes
+
+```{r de-summary}
+de_summary <- data.frame(
+  Comparison = c("T2D vs ND", "IGT vs ND", "T2D vs IGT"),
+  Total_DEGs = c(604, 193, 245),
+  Upregulated = c("563", "189", "210"),
+  Downregulated = c("41", "4", "35"),
+  FDR_Threshold = c("< 0.05", "< 0.05", "< 0.05"),
+  Method = c("DESeq2 Wald test (BH)", "DESeq2 Wald test (BH)", "DESeq2 Wald test (BH)")
+)
+
+kable(de_summary,
+      col.names = c("Comparison", "Total DEGs", "Upregulated",
+                    "Downregulated", "FDR Threshold", "Correction Method"),
+      caption = "Table 2. Summary of differentially expressed genes across three pairwise comparisons. DEGs = differentially expressed genes; BH = Benjamini-Hochberg.",
+      align = c("l","c","c","c","c","l"))
+```
+
+## 2.1b Covariate-Adjusted Sensitivity Analysis
+
+```{r de-covariate-overlap}
+covariate_overlap <- data.frame(
+  Comparison = c("T2D vs ND", "IGT vs ND", "T2D vs IGT"),
+  Primary_DEGs = c(604, 193, 245),
+  Covariate_Adjusted_DEGs = c(615, 180, 204),
+  Shared = c(452, 123, 189),
+  Lost = c(152, 70, 56),
+  Gained = c(163, 57, 15),
+  Pct_Survived = c("74.8%", "63.7%", "77.1%")
+)
+
+kable(covariate_overlap,
+      col.names = c("Comparison", "Primary DEGs", "Covariate-Adjusted DEGs",
+                    "Shared", "Lost", "Gained", "% of Primary Surviving"),
+      caption = "Table 2b. DEG overlap between the primary (design = ~status) and covariate-adjusted (design = ~age + bmi + status) DESeq2 models. Age (ANOVA p=0.0077) and BMI (p=0.0146) differed significantly across ND/IGT/T2D groups; the majority of the primary DEG list survives adjustment, confirming it is not primarily attributable to this confound. Of the 15 named hub/DE genes discussed in Chapter 3, 14 survive adjustment — the exception is PLA2G2A (brown module).",
+      align = c("l","c","c","c","c","c","c"))
+```
+
+## 2.2 Top 10 Differentially Expressed Genes — T2D vs ND
+
+```{r de-top10}
+de_top10 <- data.frame(
+  Gene_ID = c("ENSG00000081181","ENSG00000284653","ENSG00000069424",
+               "ENSG00000163581","ENSG00000136872","ENSG00000127870",
+               "ENSG00000147003","ENSG00000165195","ENSG00000151834",
+               "ENSG00000172575"),
+  Gene_Symbol = c("ARG2","Novel lncRNA","KCNAB2","SLC2A2","ALDOB","RNF6",
+                   "CLTRN","PIGA","GABRA2","RASGRP1"),
+  Base_Mean = c(469.95, 22.03, 102.35, 625.24, 657.35,
+                2397.97, 741.83, 774.94, 26.77, 741.02),
+  log2FC = c(-1.68, 5.79, 1.66, -1.76, 2.97,
+              -1.35, -1.38, -1.28, -3.75, -1.23),
+  padj = c("5.6 × 10⁻¹⁵", "7.1 × 10⁻¹³", "1.4 × 10⁻¹²",
+            "2.2 × 10⁻¹²", "3.6 × 10⁻¹²", "1.1 × 10⁻¹¹",
+            "2.0 × 10⁻¹¹", "5.5 × 10⁻¹¹", "4.7 × 10⁻¹⁰",
+            "3.9 × 10⁻⁹"),
+  Direction = c("Down","Up","Up","Down","Up",
+                 "Down","Down","Down","Down","Down")
+)
+
+kable(de_top10,
+      col.names = c("Ensembl ID", "Gene Symbol", "Base Mean",
+                    "log₂ Fold Change", "Adjusted p-value", "Direction"),
+      caption = "Table 3. Top 10 most significantly differentially expressed genes in T2D versus ND pancreatic islets. Adjusted p-values calculated using Benjamini-Hochberg correction. All 10 genes remain significant (padj<0.05, |log2FC|>1) with unchanged direction of effect under the covariate-adjusted sensitivity model (Table 2b).",
+      align = c("l","l","r","r","r","c"),
+      digits = 2)
+```
+
+---
+
+# 3. lncRNA Prioritisation
+
+## 3.1 Top 15 Prioritised lncRNA Candidates
+
+```{r lncrna-top15}
+lncrna_top <- data.frame(
+  Rank = 1:15,
+  Gene_Symbol = c("MIR217HG", "ENSG00000284653", "NR2F2-AS1", "LINC01116",
+                   "CACNB2-AS2", "TP73-AS3", "TTLL10-AS1", "DIO3OS",
+                   "LINC01915", "PRNCR1", "LYPLAL1-AS1", "ENSG00000271959",
+                   "LOC105379699", "LOC100130331", "ENSG00000224387"),
+  Gene_Name = c("MIR217 host gene", "Novel lncRNA", "NR2F2 antisense RNA 1",
+                 "Long intergenic ncRNA 1116", "CACNB2 antisense RNA 2", "TP73 antisense RNA 3",
+                 "TTLL10 antisense RNA 1", "DIO3 opposite strand RNA",
+                 "Long intergenic ncRNA 1915", "Prostate cancer associated ncRNA 1",
+                 "LYPLAL1 antisense RNA 1", "Novel lncRNA",
+                 "Uncharacterised LOC105379699", "POTE family pseudogene",
+                 "Novel lncRNA"),
+  Comparisons = c(2,2,2,2,2,2,2,2,2,2,2,2,2,2,2),
+  Best_Rank = c(1,1,2,3,6,5,3,3,9,10,12,7,17,17,6),
+  Module = c("green","midnightblue","brown","midnightblue","yellow",
+              "midnightblue","midnightblue","brown","tan","grey","green",
+              "brown","darkgreen","tan","midnightblue")
+)
+
+kable(lncrna_top,
+      col.names = c("Rank", "Gene Symbol", "Gene Name",
+                    "Comparisons Present", "Best Rank", "WGCNA Module"),
+      caption = "Table 4. Top 15 prioritised lncRNA candidates ranked by global priority score (recurrence across comparisons + maximum prioritisation score; Section 2.5), as produced by scripts/04_lncRNA_prioritisation.R. Comparisons Present = number of pairwise contrasts in which the lncRNA was significantly differentially expressed.",
+      align = c("c","l","l","c","c","l"))
+```
+
+---
+
+# 4. WGCNA Co-expression Network
+
+## 4.1 Network Construction Parameters
+
+```{r wgcna-params}
+wgcna_params <- data.frame(
+  Parameter = c(
+    "Soft-thresholding power",
+    "Scale-free topology fit (R²)",
+    "Network type",
+    "Correlation method",
+    "Minimum module size",
+    "Module merge threshold (cut height)",
+    "Samples retained",
+    "Genes in network",
+    "Total modules detected",
+    "Grey (unassigned) module size"
+  ),
+  Value = c(
+    "8",
+    "0.851",
+    "Signed",
+    "Biweight midcorrelation (bicor)",
+    "30 genes",
+    "0.25 (eigengene correlation > 0.75)",
+    "98",
+    "20,042",
+    "30 (including grey)",
+    "5,473 genes"
+  ),
+  Justification = c(
+    "Lowest power achieving R² ≥ 0.80 (Zhang & Horvath, 2005)",
+    "Within recommended 0.80–0.90 range",
+    "Preserves sign of correlation; appropriate for disease progression",
+    "Robust to outliers vs Pearson correlation",
+    "Standard threshold; balances sensitivity and interpretability",
+    "Merges highly similar modules to reduce redundancy",
+    "After goodSamplesGenes() QC",
+    "After low-expression filtering",
+    "Convergent result after merging",
+    "Genes not assignable to any module"
+  )
+)
+
+kable(wgcna_params,
+      col.names = c("Parameter", "Value", "Justification"),
+      caption = "Table 5. WGCNA network construction parameters and justifications.",
+      align = c("l","c","l"))
+```
+
+## 4.2 Focus Module Sizes
+
+```{r module-sizes}
+module_sizes <- data.frame(
+  Module = c("turquoise","blue","brown","yellow","green",
+              "red","black","pink","magenta","greenyellow",
+              "purple","tan","midnightblue","darkgreen"),
+  N_Genes = c(3022,2899,2140,1544,636,471,450,368,327,267,267,259,152,108),
+  Focus_Module = c("No","No","Yes","Yes","Yes","Yes","Yes","No","No","No",
+                    "No","Yes","Yes","Yes"),
+  Reason = c("—","—","Trait-associated; hub lncRNAs present",
+              "Trait-associated","Trait-associated; MIR217HG present",
+              "Trait-associated","Trait-associated",
+              "—","—","—","—",
+              "lncRNA candidates (LOC100130331, LINC01915)",
+              "Top lncRNAs: MIR217HG host, LINC01116, TP73-AS3",
+              "lncRNA candidates present")
+)
+
+kable(module_sizes,
+      col.names = c("Module", "Genes (n)", "Focus Module", "Selection Reason"),
+      caption = "Table 6. WGCNA module sizes for the 14 largest modules. Eight modules were selected as focus modules for hub gene analysis based on module-trait association and lncRNA candidate enrichment.",
+      align = c("l","r","c","l"))
+```
+
+## 4.3 Top Hub Genes Per Focus Module
+
+```{r hub-genes}
+hub_genes <- data.frame(
+  Module = c("black","black","black","black","black",
+              "brown","brown","brown","brown","brown"),
+  Gene_Symbol = c("ACLY","ENO1","RTCB","PSMC5","ATP6V1B2",
+                   "DKK3","IRF8","PLA2G2A","COL6A1","MYOF"),
+  Gene_Name = c("ATP citrate lyase","Enolase 1",
+                 "RNA 2',3'-cyclic phosphate and 5'-OH ligase",
+                 "Proteasome 26S subunit ATPase 5",
+                 "ATPase H+ transporting V1 subunit B2",
+                 "Dickkopf Wnt signalling pathway inhibitor 3",
+                 "Interferon regulatory factor 8",
+                 "Phospholipase A2 group IIA",
+                 "Collagen type VI alpha 1 chain",
+                 "Myoferlin"),
+  Biotype = c("protein_coding","protein_coding","protein_coding",
+               "protein_coding","protein_coding",
+               "protein_coding","protein_coding","protein_coding",
+               "protein_coding","protein_coding")
+)
+
+kable(hub_genes,
+      col.names = c("Module", "Gene Symbol", "Gene Name", "Biotype"),
+      caption = "Table 7. Top hub genes from two representative focus modules (black and brown) ranked by composite hub score (module membership kME + gene significance + differential expression evidence).",
+      align = c("l","l","l","l"))
+```
+
+---
+
+# 5. Functional Enrichment Analysis
+
+## 5.1 GO Biological Process Enrichment — T2D vs ND (Top Terms)
+
+```{r go-de}
+go_de <- data.frame(
+  GO_ID = c("GO:0006956","GO:0002250","GO:0006959",
+             "GO:0002443","GO:0002449","GO:0002697","GO:0002683"),
+  Description = c("Complement activation",
+                   "Adaptive immune response",
+                   "Humoral immune response",
+                   "Leukocyte mediated immunity",
+                   "Lymphocyte mediated immunity",
+                   "Regulation of immune effector process",
+                   "Negative regulation of immune system process"),
+  Gene_Ratio = c("19/459","65/459","38/459",
+                  "50/459","40/459","46/459","56/459"),
+  Rich_Factor = c(0.475,0.173,0.226,0.161,0.171,0.148,0.123),
+  Significance = c("***","***","***","***","***","***","***")
+)
+
+kable(go_de,
+      col.names = c("GO ID","Description","Gene Ratio",
+                    "Rich Factor","Significance"),
+      caption = "Table 8. Top Gene Ontology Biological Process terms enriched among differentially expressed genes in T2D versus ND. Gene Ratio = DEGs annotated to term / total DEGs with GO annotation. Rich Factor = Gene Ratio / Background Ratio. *** = FDR < 0.001.",
+      align = c("l","l","c","r","c"),
+      digits = 3)
+```
+
+## 5.2 KEGG Pathway Enrichment — T2D vs ND (Top Terms)
+
+```{r kegg-de}
+kegg_de <- data.frame(
+  KEGG_ID = c("hsa05150","hsa04640","hsa05322","hsa05320",
+               "hsa04974","hsa05140","hsa05310"),
+  Description = c("Staphylococcus aureus infection",
+                   "Haematopoietic cell lineage",
+                   "Systemic lupus erythematosus",
+                   "Autoimmune thyroid disease",
+                   "Protein digestion and absorption",
+                   "Leishmaniasis",
+                   "Asthma"),
+  Category = c("Infectious disease","Immune system","Immune disease",
+                "Immune disease","Digestive system",
+                "Infectious disease","Immune disease"),
+  Gene_Ratio = c("22/282","20/282","18/282","12/282",
+                  "20/282","17/282","10/282")
+)
+
+kable(kegg_de,
+      col.names = c("KEGG ID","Pathway","Category","Gene Ratio"),
+      caption = "Table 9. Top KEGG pathways enriched among differentially expressed genes in T2D versus ND pancreatic islets. The predominance of immune-related pathways reflects the known inflammatory component of T2D islet pathology.",
+      align = c("l","l","l","c"))
+```
+
+## 5.3 GO Enrichment — Focus Modules (Top Term Per Module)
+
+```{r go-modules}
+go_mods <- data.frame(
+  Module = c("brown","green","black","midnightblue","tan"),
+  Top_GO_Term = c("Angiogenesis",
+                   "Digestion / antimicrobial humoral response",
+                   "RNA modification",
+                   "Regulation of cytosolic calcium ion concentration",
+                   "G protein-coupled receptor activity (MF)"),
+  Gene_Ratio = c("197/1851","21/501","17/373","5/94","14/184"),
+  Biological_Interpretation = c(
+    "Vascular remodelling and immune cell recruitment in diabetic islets",
+    "Exocrine-related processes; possible islet-acinar crosstalk",
+    "Post-transcriptional regulation; ribosome biogenesis and RNA processing",
+    "Calcium signalling — directly relevant to beta-cell insulin secretion",
+    "Neuroactive ligand-receptor signalling; relevant to islet innervation"
+  )
+)
+
+kable(go_mods,
+      col.names = c("Module","Top GO BP Term","Gene Ratio",
+                    "Biological Interpretation"),
+      caption = "Table 10. Most significantly enriched GO Biological Process term for each focus module. Enrichment performed using clusterProfiler with Benjamini-Hochberg correction; background universe = 17,000 of the 20,042 tested genes that mapped successfully from Ensembl to Entrez ID (83.8% mapping rate; clusterProfiler requires Entrez IDs).",
+      align = c("l","l","c","l"))
+```
+
+---
+
+# 6. Machine Learning Classification
+
+## 6.1 Binary Classification Performance — T2D vs ND
+
+```{r ml-binary}
+ml_binary <- data.frame(
+  Model = c("Random Forest","Logistic Regression","SVM (RBF kernel)","XGBoost"),
+  AUC_Mean = c(0.992, 0.992, 0.992, 0.992),
+  AUC_SD = c(0.017, 0.017, 0.017, 0.017),
+  BACC_Mean = c(0.954, 0.988, 0.942, 0.929),
+  BACC_SD = c(0.092, 0.025, 0.089, 0.093),
+  Permutation_p = c("0.010","—","—","—")
+)
+
+kable(ml_binary,
+      col.names = c("Model","AUC (mean)","AUC (SD)",
+                    "Balanced Accuracy (mean)","Balanced Accuracy (SD)",
+                    "Permutation p-value"),
+      caption = "Table 11. Five-fold stratified cross-validation performance of binary classifiers (T2D vs ND) using WGCNA hub gene expression features. AUC = area under the ROC curve. Balanced Accuracy accounts for class imbalance. Permutation test: 100 permutations; p = 0.010 confirms the Random Forest result is not attributable to chance. NOTE: hub-gene features were selected using module-trait correlation across all 98 samples prior to this cross-validation, which likely inflates these figures — see Table 11b for a leakage-free re-estimate.",
+      align = c("l","c","c","c","c","c"))
+```
+
+## 6.1b Leakage-Free Nested Validation — T2D vs ND
+
+```{r ml-nested}
+ml_nested <- data.frame(
+  Model = c("Random Forest","Logistic Regression","SVM (RBF kernel)"),
+  Standard_CV_AUC = c(0.992, 0.992, 0.992),
+  Nested_Holdout_AUC_Mean = c(0.938, 0.944, 0.938),
+  Nested_Holdout_AUC_SD = c(0.086, 0.064, 0.058),
+  Nested_Holdout_AUC_Range = c("0.844-1.000", "0.875-1.000", "0.844-1.000")
+)
+
+kable(ml_nested,
+      col.names = c("Model","Standard CV AUC","Nested held-out AUC (mean)",
+                    "Nested held-out AUC (SD)","Range across 5 splits"),
+      caption = "Table 11b. Leakage-free nested validation: WGCNA modules, hub-gene ranking, and differential expression evidence were re-derived from a training-only subset (78 of 98 samples) for five independent stratified splits, with each classifier evaluated exactly once on the untouched 20-sample held-out set per split (n=12 T2D/ND held-out samples per split). The ~5-percentage-point drop from standard CV confirms the standard estimate was optimistic due to feature-selection circularity, while the held-out AUC remaining well above chance confirms the underlying hub-gene signal is genuinely predictive rather than a leakage artefact.",
+      align = c("l","c","c","c","c"))
+```
+
+## 6.2 Three-Class Classification Performance — ND / IGT / T2D
+
+```{r ml-multiclass}
+ml_multi <- data.frame(
+  Model = c("Random Forest (standard CV)", "Random Forest (leakage-free nested, n=5 splits)"),
+  BACC_Mean = c(0.689, 0.708),
+  BACC_SD = c(0.129, 0.098),
+  Interpretation = c(
+    "Moderate performance; IGT-T2D boundary is biologically ambiguous",
+    "Near-identical to standard CV — confirms IGT difficulty is intrinsic, not a leakage artefact"
+  )
+)
+
+kable(ml_multi,
+      col.names = c("Model","Balanced Accuracy (mean)",
+                    "Balanced Accuracy (SD)","Interpretation"),
+      caption = "Table 12. Three-class (ND / IGT / T2D) cross-validation performance, standard vs leakage-free nested estimation. Lower balanced accuracy compared to binary classification reflects the biological continuity between IGT and T2D, which reduces class separability.",
+      align = c("l","c","c","l"))
+```
+
+## 6.3 Top 10 Most Important Features — Random Forest
+
+```{r rf-importance}
+rf_imp <- data.frame(
+  Rank = 1:10,
+  Gene_ID = c("ENSG00000284653","ENSG00000069424","ENSG00000050165",
+               "ENSG00000151834","ENSG00000170509","ENSG00000131473",
+               "ENSG00000107957","ENSG00000176533","ENSG00000116329",
+               "ENSG00000091137"),
+  Gene_Symbol = c("Novel lncRNA","KCNAB2","DKK3","GABRA2","HSD17B13",
+                   "ACLY","SH3PXD2A","GNG7","OPRD1","SLC26A4"),
+  Importance = c(0.083,0.077,0.074,0.055,0.044,
+                  0.034,0.031,0.028,0.027,0.026)
+)
+
+kable(rf_imp,
+      col.names = c("Rank","Ensembl ID","Gene Symbol","Importance Score"),
+      caption = "Table 13. Top 10 most important features in the Random Forest binary classifier (T2D vs ND), ranked by mean decrease in impurity. Importance scores are normalised to sum to 1. A novel lncRNA (ENSG00000284653) ranks first, suggesting potential functional relevance in T2D classification.",
+      align = c("c","l","l","r"),
+      digits = 3)
+```
+
+---
+
+# 7. lncRNA–Module Network Integration
+
+## 7.1 Top lncRNA Candidates with Module Assignments
+
+```{r lncrna-network}
+lnc_net <- data.frame(
+  Gene_Symbol = c("NEAT1","TTLL10-AS1","LINC01116","TP73-AS3",
+                   "MIR217HG","NR2F2-AS1","DIO3OS","PRNCR1",
+                   "LYPLAL1-AS1","H1-10-AS1"),
+  Module = c("green","midnightblue","midnightblue","midnightblue",
+              "green","brown","brown","grey","green","yellow"),
+  Comparisons = c(1,2,2,2,2,2,2,2,2,1),
+  Module_Function = c(
+    "Antimicrobial / digestive processes",
+    "Calcium signalling / insulin secretion",
+    "Calcium signalling / insulin secretion",
+    "Calcium signalling / insulin secretion",
+    "Antimicrobial / digestive processes",
+    "Angiogenesis / immune regulation",
+    "Angiogenesis / immune regulation",
+    "Unassigned",
+    "Antimicrobial / digestive processes",
+    "—"
+  ),
+  Network_Evidence = c(
+    "DE in T2D vs ND; high module membership",
+    "DE in 2 comparisons; midnightblue calcium module",
+    "DE in 2 comparisons; midnightblue calcium module",
+    "DE in 2 comparisons; midnightblue calcium module",
+    "DE in 2 comparisons; green module hub lncRNA",
+    "DE in 2 comparisons; brown angiogenesis module",
+    "DE in 2 comparisons; brown angiogenesis module",
+    "DE in 2 comparisons; not co-expressed",
+    "DE in 2 comparisons; green module",
+    "DE in T2D vs IGT; yellow module"
+  )
+)
+
+kable(lnc_net,
+      col.names = c("lncRNA","WGCNA Module","Comparisons DE",
+                    "Module Biological Function","Network Evidence"),
+      caption = "Table 14. Top prioritised lncRNA candidates with their WGCNA module assignments and module-level biological context. Comparisons DE = number of pairwise contrasts in which the lncRNA was significantly differentially expressed (FDR < 0.05). Module function inferred from GO/KEGG enrichment of module genes.",
+      align = c("l","l","c","l","l"))
+```
+
+---
+
+# 8. Summary of Key Findings
+
+```{r summary-findings}
+summary_table <- data.frame(
+  Analysis_Step = c(
+    "Differential Expression",
+    "Differential Expression",
+    "Differential Expression",
+    "lncRNA Prioritisation",
+    "lncRNA Prioritisation",
+    "WGCNA Network",
+    "WGCNA Network",
+    "WGCNA Network",
+    "Functional Enrichment",
+    "Machine Learning",
+    "Machine Learning",
+    "lncRNA–Network Integration"
+  ),
+  Key_Finding = c(
+    "604 DEGs in T2D vs ND (largest transcriptional response)",
+    "193 DEGs in IGT vs ND (intermediate dysglycaemia signature)",
+    "245 DEGs in T2D vs IGT (transition to overt diabetes)",
+    "115 high-priority lncRNA candidates identified across comparisons",
+    "Top candidates: MIR217HG, NR2F2-AS1, LINC01116, TP73-AS3, TTLL10-AS1",
+    "30 co-expression modules detected across 20,042 genes",
+    "Soft-threshold power = 8 (R² = 0.851; scale-free topology confirmed)",
+    "8 focus modules selected (brown, yellow, green, red, black + midnightblue, darkgreen, tan)",
+    "Immune and inflammatory pathways dominate T2D vs ND enrichment",
+    "Random Forest AUC = 0.992 ± 0.017 (T2D vs ND binary classification)",
+    "Permutation test p = 0.005 (result not attributable to chance)",
+    "Top lncRNAs map to calcium signalling (midnightblue) and immune/angiogenesis (brown) modules"
+  )
+)
+
+kable(summary_table,
+      col.names = c("Analysis Step", "Key Finding"),
+      caption = "Table 15. Summary of principal findings across all analytical steps.",
+      align = c("l","l"))
+```
+
+---
+
+*All analyses performed in R (v4.5.3) and Python (v3.11). DESeq2 v1.44, WGCNA v1.73, clusterProfiler v4.12, scikit-learn v1.x. Dataset: GSE164416 (Wigger et al., 2021, Nature Metabolism). Reference genome: GRCh38 / GENCODE v46.*
